@@ -109,17 +109,24 @@ export const HandbookView = ({ book }: { book: Book }) => (
   <main className="bg-surface-paper-2">
     <div className="mx-auto w-full max-w-[86rem] px-5 sm:px-8">
       <div className="grid gap-0 lg:grid-cols-[17rem_1fr]">
+        {/*
+          Pinned to the viewport on desktop, and exactly one viewport tall.
+          The header part keeps its size; the contents take what is left and
+          scroll inside it — see `handbook-nav.tsx`. Without the `min-h-0`
+          chain the rail grew past the screen and its lower half was simply
+          unreachable, because the page scrolling does not move a pinned rail.
+        */}
         <aside className="border-rule-paper lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-r">
-          <div className="flex h-full flex-col gap-8 py-10 pr-8 lg:py-14">
+          <div className="flex h-full min-h-0 flex-col gap-6 py-8 lg:gap-7 lg:py-10 lg:pr-4">
             <Link
               href="/"
-              className="label flex items-center gap-2 text-dim-paper transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-accent"
+              className="label flex shrink-0 items-center gap-2 text-dim-paper transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-accent"
             >
               <span aria-hidden>&lt;</span>
               {book.back}
             </Link>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex shrink-0 flex-col gap-2">
               <span className="text-xl font-medium tracking-tight">
                 {brand.name}
                 <span className="text-dim-paper"> / {book.name.toLowerCase()}</span>
@@ -128,7 +135,7 @@ export const HandbookView = ({ book }: { book: Book }) => (
             </div>
 
             {/* The other book, one line, so the two are never dead ends. */}
-            <div className="flex flex-col gap-2 border-y border-rule-paper py-4">
+            <div className="flex shrink-0 flex-col gap-2 border-y border-rule-paper py-4 lg:mr-4">
               {books.map((other) => (
                 <Link
                   key={other.path}

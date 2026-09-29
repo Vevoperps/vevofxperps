@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { HoverType } from "@/components/ui/hover-type";
 import { SocialMark } from "@/components/ui/social-mark";
@@ -29,20 +29,48 @@ import { scrollTo } from "@/utils/scroll-to";
 export const SiteHeader = () => {
   const [active, setActive] = useState<string>(nav[0].id);
 
+  /**
+   * A clicked item holds the highlight until the page arrives.
+   *
+   * Without this the marker walked through every section the glide passed on
+   * its way — click FAQ from the top and the bar flickered How, Markets,
+   * Countries, Fees before settling — which read as the button not having
+   * taken the click. `until` is a safety net for a glide the reader interrupts
+   * with the wheel, when Lenis never reports completion.
+   */
+  const pinned = useRef<{ id: string; until: number } | null>(null);
+
+  /** What the ticker last set, kept in step with clicks — see `jump`. */
+  const current = useRef("");
+
   useEffect(() => {
-    let current = "";
     return subscribeToTicker(
       () => {
+        const pin = pinned.current;
+        if (pin && performance.now() < pin.until) return;
+        pinned.current = null;
+
         // The section whose top has most recently crossed a third of the
         // viewport: the same "what am I actually looking at" line the eye uses.
+        //
+        // "Most recently" is measured, not assumed from the array order: of
+        // the sections above the line, the one whose top is lowest wins. With
+        // the bar and the page in different orders, the old "last in the list"
+        // rule lit Countries while the reader was on Fees.
         const line = window.innerHeight / 3;
         let found: string = nav[0].id;
+        let best = -Infinity;
         for (const item of nav) {
           const node = document.getElementById(item.id);
-          if (node && node.getBoundingClientRect().top <= line) found = item.id;
+          if (!node) continue;
+          const top = node.getBoundingClientRect().top;
+          if (top <= line && top > best) {
+            best = top;
+            found = item.id;
+          }
         }
-        if (found !== current) {
-          current = found;
+        if (found !== current.current) {
+          current.current = found;
           setActive(found);
         }
       },
@@ -57,7 +85,17 @@ export const SiteHeader = () => {
       return;
     }
     event.preventDefault();
-    scrollTo(id);
+
+    pinned.current = { id, until: performance.now() + 2500 };
+    current.current = id;
+    setActive(id);
+
+    scrollTo(id, {
+      onComplete: () => {
+        // Release only our own pin: a newer click has already replaced it.
+        if (pinned.current?.id === id) pinned.current = null;
+      },
+    });
     // **No hash is written.** It used to be, so the address bar would name the
     // section, and it cost the back button: the hash outlived the click, and
     // every later return to this page honoured it instead of the position the

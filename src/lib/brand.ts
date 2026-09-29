@@ -36,7 +36,8 @@ export const brand = {
   links: {
     /** Where "launch app" goes. Null renders the button as a coming-soon state. */
     app: "/app" as string | null,
-    x: null as string | null,
+    /** Full profile URL. The @handle for meta tags is derived from it in `site.ts`. */
+    x: "https://x.com/Vevofxperps" as string | null,
     telegram: null as string | null,
     discord: null as string | null,
     /**

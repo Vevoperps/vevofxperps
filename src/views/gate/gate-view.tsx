@@ -21,10 +21,19 @@
 
 import { useState, type FormEvent } from "react";
 
+import { SocialMark } from "@/components/ui/social-mark";
 import { apiFetch } from "@/lib/api-client";
 import { brand } from "@/lib/brand";
 
 import { PixelField } from "./pixel-field";
+
+/**
+ * The X account, as the gate names it. The gate is the one page every early
+ * visitor sees, and the account is the only place the opening will be
+ * announced, so it is offered here rather than behind the code.
+ */
+const X_URL = brand.links.x;
+const X_HANDLE = X_URL ? `@${X_URL.replace(/\/+$/, "").split("/").pop()}` : null;
 
 /** Enough to catch a typo, not enough to argue with a valid address. */
 const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -95,6 +104,21 @@ export const GateView = () => {
             </span>
             <p className="text-sm leading-relaxed text-dim-paper">
               Thanks. {brand.name} opens to the public soon.
+              {X_URL && X_HANDLE ? (
+                <>
+                  {" "}
+                  The date goes out first on{" "}
+                  <a
+                    href={X_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline-offset-4 hover:underline"
+                  >
+                    {X_HANDLE}
+                  </a>
+                  .
+                </>
+              ) : null}
             </p>
             <button
               type="button"
@@ -207,8 +231,20 @@ export const GateView = () => {
           </form>
         )}
 
-        <footer className="border-t border-rule-paper px-5 py-3">
+        <footer className="flex items-center justify-between border-t border-rule-paper px-5 py-3">
           <span className="label text-dim-paper">Launching soon</span>
+          {X_URL && X_HANDLE ? (
+            <a
+              href={X_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${brand.name} on X`}
+              className="label flex items-center gap-2 text-dim-paper transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-accent"
+            >
+              <SocialMark kind="x" />
+              {X_HANDLE}
+            </a>
+          ) : null}
         </footer>
       </div>
     </main>

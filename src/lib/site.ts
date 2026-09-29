@@ -12,6 +12,17 @@
 import { publicEnv } from "@/env";
 import { brand } from "@/lib/brand";
 
+/**
+ * The X account as an `@handle`, which is what `twitter:site` expects.
+ *
+ * `brand.links.x` holds the full profile URL because that is what every link
+ * on the page needs; a meta tag given the URL instead of the handle is
+ * ignored by X when it builds the link card.
+ */
+const xHandle = brand.links.x
+  ? `@${brand.links.x.replace(/\/+$/, "").split("/").pop()}`
+  : `@${brand.name}`;
+
 export const siteConfig = {
   /** Capitalised for the tab strip and the share card: a product name is
    * written the way people say it, even where the wordmark is lowercase. */
@@ -24,7 +35,7 @@ export const siteConfig = {
    * where the origin is not the canonical domain.
    */
   url: publicEnv.NEXT_PUBLIC_SITE_URL ?? brand.url,
-  twitterHandle: brand.links.x ?? `@${brand.name}`,
+  twitterHandle: xHandle,
   author: brand.name,
   /**
    * Browser theme-color (address bar / PWA). The hero blue, so the chrome
@@ -45,9 +56,18 @@ export const siteConfig = {
 export const brandMark = {
   background: "#0055ff",
   foreground: "#ffffff",
-  /** The wordmark, and the single glyph the favicon is cropped to. */
+  /** The wordmark, as the share card sets it. */
   wordmark: `${brand.name}.`,
-  glyph: brand.name.charAt(0).toUpperCase(),
+  /**
+   * The icon mark: the wordmark over the product word, both running past the
+   * tile's edges.
+   *
+   * Two lines rather than one because a tab strip gives a mark a square, and a
+   * single word in a square wastes half of it. Stacked and full bleed, the
+   * shape fills the tile and stays recognisable at 16px, where nobody reads a
+   * favicon — they recognise an outline.
+   */
+  stack: [brand.name, "PERPS"] as const,
   /**
    * Short line for the share card.
    *

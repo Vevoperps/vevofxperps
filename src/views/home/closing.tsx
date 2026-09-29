@@ -159,7 +159,9 @@ export const Closing = () => (
                 {brand.links[item.key] ? (
                   <a
                     href={brand.links[item.key] as string}
-                    aria-label={item.name}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${brand.name} on ${item.name}`}
                     className="block text-dim-paper transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-accent"
                   >
                     <SocialMark kind={item.kind} />

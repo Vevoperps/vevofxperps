@@ -23,11 +23,17 @@ export interface SectionHead {
   action?: string;
 }
 
+/**
+ * The header's jump links, in the order the sections appear on the page —
+ * see `SECTION_ORDER` below and `views/home/index.tsx`. Keep the three in step:
+ * a bar that reads Markets before How it works while the page does the
+ * opposite sends the reader down, then back up.
+ */
 export const nav = [
-  { id: "markets", label: "Markets" },
   { id: "how", label: "How it works" },
-  { id: "fees", label: "Fees" },
+  { id: "markets", label: "Markets" },
   { id: "coverage", label: "Countries" },
+  { id: "fees", label: "Fees" },
   { id: "faq", label: "FAQ" },
 ] as const;
 
@@ -171,13 +177,13 @@ export const install = {
    * labelled placeholder rather than an embed of nothing.
    */
   video: {
-    youtubeId: null as string | null,
+    youtubeId: "9-Qa4iF3vGc" as string | null,
     title: "Product demo",
     /** Printed on the frame's title bar. */
     file: `${brand.name} / demo.mp4`,
     /** Shown in place of the video while there is no id. */
     placeholder: "Demo recording lands here",
-    duration: "01:00",
+    duration: "03:14",
     play: "Play",
   },
   note: "a full ticket end to end: connect, deposit, open, close. no cuts.",

@@ -10,6 +10,23 @@ import { TypeIn } from "@/components/ui/type-in";
 import { Section } from "@/components/ui/section";
 import { DocPreview } from "@/views/home/doc-preview";
 import { SECTION_COUNT, sectionIndex, docs } from "@/data/content";
+import type { Book } from "@/data/books";
+
+/**
+ * Only what the thumbnail draws: the rail and the first chapter. The preview
+ * is a client component, so whatever is passed to it is serialised into the
+ * page; the full books would add both handbooks' text to every home load.
+ */
+const preview = (book: Book): Book => ({
+  ...book,
+  chapters: book.chapters.slice(0, 1),
+});
+
+/** Both books' names, for the switcher at the top of each thumbnail's rail. */
+const shelf = docs.books.map((entry) => ({
+  path: entry.book.path,
+  name: entry.book.name,
+}));
 
 /**
  * The two books, each shown as the page it opens on.
@@ -59,7 +76,7 @@ export const Docs = () => (
         </Reveal>
 
         <Reveal y={24} delay={120} className="mt-auto pt-16">
-          <Action>{docs.head.action}</Action>
+          <Action href={docs.books[0].href}>{docs.head.action}</Action>
         </Reveal>
 
         <Reveal y={24} delay={180} className="mt-10 flex flex-col gap-4">
@@ -94,11 +111,14 @@ export const Docs = () => (
                 </span>
               </div>
 
-              {/* The page, cropped by the card: it runs off the bottom edge, so
-                  it reads as a document continuing rather than a thumbnail. */}
-              <div className="dotfield-panel relative h-[17rem] overflow-hidden border-y border-rule-paper px-5 pt-6">
-                <div className="h-full w-full border border-rule-paper shadow-[0_1rem_2rem_-1rem_rgba(0,0,0,0.25)] transition-transform duration-[var(--duration-slow)] ease-entrance group-hover:-translate-y-2">
-                  <DocPreview book={book.book} />
+              {/* The page, whole: the book's real first screen shrunk to fit
+                  the card, framed on the dotted ground. Nothing moves on
+                  hover — the frame's edge takes the accent instead, so the
+                  card answers the pointer without the page jumping inside a
+                  window that would crop it. */}
+              <div className="dotfield-panel border-y border-rule-paper p-5">
+                <div className="border border-rule-paper bg-surface-paper shadow-[0_1rem_2rem_-1rem_rgba(0,0,0,0.25)] transition-colors duration-[var(--duration-fast)] ease-entrance group-hover:border-accent">
+                  <DocPreview book={preview(book.book)} shelf={shelf} />
                 </div>
               </div>
 
