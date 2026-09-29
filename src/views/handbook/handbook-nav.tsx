@@ -107,7 +107,9 @@ export const HandbookNav = ({ book }: { book: Book }) => {
     }
     event.preventDefault();
 
-    pinned.current = { id, until: performance.now() + 2500 };
+    // The event's own timestamp is on `performance.now()`'s clock, and reading
+    // it keeps the handler free of impure calls (react-hooks/purity).
+    pinned.current = { id, until: event.timeStamp + 2500 };
     last.current = id;
     setCurrent(id);
     setOpen(false);
