@@ -68,3 +68,32 @@ export const gateToken = (): string => {
   const password = gatePassword();
   return password === null ? "" : token(`vevoperps:${password}`);
 };
+
+/*
+ * ---------------------------------------------------------------------------
+ * The $VEVO page lock.
+ *
+ * A second, separate curtain over `/app/vevo` while the token page waits for
+ * its contract address and links. Separate cookie, separate token: getting
+ * past the site gate must not open this page too, or it would be open to
+ * every early-access visitor.
+ *
+ * `TOKEN_PAGE_PASSWORD` sets its own code; unset, it falls back to the site
+ * code. To take the lock down after the launch patch, delete the check in
+ * `app/app/vevo/page.tsx` (one `if`), or set `TOKEN_PAGE_LOCK=off`.
+ * ---------------------------------------------------------------------------
+ */
+
+export const TOKEN_PAGE_COOKIE = "vp_token_page";
+
+export const tokenPageLocked = (): boolean =>
+  process.env.TOKEN_PAGE_LOCK?.trim().toLowerCase() !== "off";
+
+export const tokenPagePassword = (): string => {
+  const own = process.env.TOKEN_PAGE_PASSWORD?.trim();
+  return own ? own : (gatePassword() ?? DEFAULT_PASSWORD);
+};
+
+/** The value a passing `TOKEN_PAGE_COOKIE` must carry. */
+export const tokenPageToken = (): string =>
+  token(`vevoperps:token-page:${tokenPagePassword()}`);

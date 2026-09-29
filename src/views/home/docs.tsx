@@ -112,12 +112,12 @@ export const Docs = () => (
               </div>
 
               {/* The page, whole: the book's real first screen shrunk to fit
-                  the card, framed on the dotted ground. Nothing moves on
-                  hover — the frame's edge takes the accent instead, so the
-                  card answers the pointer without the page jumping inside a
-                  window that would crop it. */}
+                  the card, on the dotted ground. On hover it lifts off the
+                  ground and its shadow deepens. The panel's padding is the
+                  headroom for that lift, and nothing here clips — so the page
+                  rises whole instead of being cut by the card. */}
               <div className="dotfield-panel border-y border-rule-paper p-5">
-                <div className="border border-rule-paper bg-surface-paper shadow-[0_1rem_2rem_-1rem_rgba(0,0,0,0.25)] transition-colors duration-[var(--duration-fast)] ease-entrance group-hover:border-accent">
+                <div className="border border-rule-paper bg-surface-paper shadow-[0_1rem_2rem_-1rem_rgba(0,0,0,0.25)] transition-[transform,box-shadow,border-color] duration-[var(--duration-slow)] ease-entrance group-hover:-translate-y-2 group-hover:border-accent group-hover:shadow-[0_1.75rem_2.5rem_-1rem_rgba(0,0,0,0.35)]">
                   <DocPreview book={preview(book.book)} shelf={shelf} />
                 </div>
               </div>

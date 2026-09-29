@@ -1,11 +1,11 @@
 {
-  "name": "Voxelelia",
-  "short_name": "Voxelelia",
-  "description": "A chess board rendered in real time.",
+  "name": "vevo",
+  "short_name": "vevo",
+  "description": "Perpetual futures on 64 currencies against the dollar, settled onchain.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#004AC7",
-  "theme_color": "#004AC7",
+  "background_color": "#001AFF",
+  "theme_color": "#0055ff",
   "icons": [
     { "src": "/icon", "sizes": "64x64", "type": "image/png" },
     { "src": "/apple-icon", "sizes": "180x180", "type": "image/png" }

@@ -6,6 +6,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { GridField } from "@/views/home/grid-field";
 import { TypedWord } from "@/views/home/typed-word";
 import { brand } from "@/lib/brand";
+import { LogoMark } from "@/lib/logo";
 import { hero } from "@/data/content";
 
 /**
@@ -30,9 +31,16 @@ export const Hero = () => (
           under this row is what tracks the cursor. */}
       <div className="pointer-events-none relative mx-auto flex h-full w-full max-w-[90rem] items-center justify-between px-5 sm:px-8">
         <Reveal y={16} className="flex items-center gap-3">
-          <span className="text-[1.5rem] font-medium tracking-tight text-ink-on-ink">
-            {brand.name}
-            <sup className="ml-0.5 align-super text-[0.5em] text-dim-ink">®</sup>
+          {/* The logo, sized to the wordmark beside it: a touch taller than
+              the lowercase, so the two read as one lock-up rather than an
+              icon next to a word. The hairline keeps the blue square from
+              dissolving into the dark grid behind it. */}
+          <span className="flex items-center gap-2.5">
+            <LogoMark className="size-[1.875rem] shadow-[0_0_0_1px_rgba(255,255,255,0.14),0_0.5rem_1.5rem_-0.5rem_rgba(0,26,255,0.6)]" />
+            <span className="text-[1.5rem] font-medium leading-none tracking-tight text-ink-on-ink">
+              {brand.name}
+              <sup className="ml-0.5 align-super text-[0.5em] text-dim-ink">®</sup>
+            </span>
           </span>
           <Chip tone="ink">{brand.version}</Chip>
         </Reveal>
@@ -91,7 +99,7 @@ export const Hero = () => (
 
           <Reveal y={20} delay={280} className="flex flex-wrap items-center gap-6">
             <Action href={brand.links.app}>{hero.primary}</Action>
-            <ActionGhost href="#markets">{hero.secondary}</ActionGhost>
+            <ActionGhost section="markets">{hero.secondary}</ActionGhost>
           </Reveal>
         </div>
       </div>

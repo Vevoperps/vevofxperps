@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { SectionLink } from "@/components/ui/section-link";
 import type { Tone } from "@/components/ui/tone";
 import { toneClasses } from "@/components/ui/tone";
 
@@ -43,14 +44,21 @@ export const Action = ({
   );
 };
 
-/** The secondary action: a label over a full-width rule. */
+/**
+ * The secondary action: a label over a full-width rule.
+ *
+ * `section` makes it a jump to a part of the home page that keeps the address
+ * at `/` — see `section-link.tsx`. It wins over `href`.
+ */
 export const ActionGhost = ({
   children,
   href = null,
+  section,
   tone = "paper",
 }: {
   children: ReactNode;
   href?: string | null;
+  section?: string;
   tone?: Tone;
 }) => {
   const t = toneClasses(tone);
@@ -63,6 +71,14 @@ export const ActionGhost = ({
       </span>
     </>
   );
+
+  if (section) {
+    return (
+      <SectionLink section={section} className={className}>
+        {body}
+      </SectionLink>
+    );
+  }
 
   return href ? (
     <a href={href} className={className}>

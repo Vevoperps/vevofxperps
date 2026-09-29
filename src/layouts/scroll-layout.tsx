@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 
 import { useScroll } from "@/hooks/smooth-scroll/use-scroll";
+import { PENDING_SECTION_KEY } from "@/components/ui/section-link";
 import { scrollTo } from "@/utils/scroll-to";
 
 export const scrollSpeed = { current: 1 };
@@ -28,6 +29,17 @@ const remember = (pathname: string, offset: number): void => {
   } catch {
     // Private windows and blocked storage. Losing the position is a smaller
     // failure than throwing inside a scroll handler.
+  }
+};
+
+/** Reads and clears the section `SectionLink` left for the home page. */
+const takePendingSection = (): string | null => {
+  try {
+    const value = sessionStorage.getItem(PENDING_SECTION_KEY);
+    if (value !== null) sessionStorage.removeItem(PENDING_SECTION_KEY);
+    return value;
+  } catch {
+    return null;
   }
 };
 
@@ -179,8 +191,29 @@ function ScrollController() {
       return () => timers.forEach(window.clearTimeout);
     }
 
+    // **A section asked for from another page.** `SectionLink` leaves it here
+    // instead of in the URL, so the home page is reached at plain `/`. Applied
+    // more than once for the same reason as a return: the page is still
+    // assembling when it lands, and the target moves as it does.
+    const pending = pathname === "/" ? takePendingSection() : null;
+    if (pending !== null) {
+      const target = pending === "0" ? 0 : pending;
+      const land = () => scrollTo(target, { immediate: true });
+      run(land);
+      const timers = [120, 320, 640].map((delay) =>
+        window.setTimeout(land, delay),
+      );
+      return () => timers.forEach(window.clearTimeout);
+    }
+
     if (hash) {
       run(() => scrollTo(hash, true));
+      // An old `/#fees` link still lands on Fees, and the address is then
+      // tidied back to `/` — the home page keeps one address. Other routes
+      // (`/docs#margin`) keep their hash; it is how a chapter is shared.
+      if (pathname === "/") {
+        history.replaceState(history.state, "", pathname + window.location.search);
+      }
       return;
     }
 

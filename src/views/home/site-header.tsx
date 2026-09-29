@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { HoverType } from "@/components/ui/hover-type";
 import { SocialMark } from "@/components/ui/social-mark";
 import { brand } from "@/lib/brand";
+import { LogoMark } from "@/lib/logo";
 import { nav } from "@/data/content";
 import { subscribeToTicker } from "@/lib/animation/ticker";
 import { scrollTo } from "@/utils/scroll-to";
@@ -26,8 +27,15 @@ import { scrollTo } from "@/utils/scroll-to";
  * stays for middle-clicks, keyboard use and anyone reading the markup; the
  * click goes through Lenis.
  */
+/**
+ * The top of the page, as a jump target. The logo cell goes there, and it is
+ * what the bar reports while the reader is still on the hero — no section
+ * lit, rather than "How it works" lit over a page that has not reached it.
+ */
+const TOP = "top";
+
 export const SiteHeader = () => {
-  const [active, setActive] = useState<string>(nav[0].id);
+  const [active, setActive] = useState<string>(TOP);
 
   /**
    * A clicked item holds the highlight until the page arrives.
@@ -58,7 +66,7 @@ export const SiteHeader = () => {
         // the bar and the page in different orders, the old "last in the list"
         // rule lit Countries while the reader was on Fees.
         const line = window.innerHeight / 3;
-        let found: string = nav[0].id;
+        let found: string = TOP;
         let best = -Infinity;
         for (const item of nav) {
           const node = document.getElementById(item.id);
@@ -90,7 +98,7 @@ export const SiteHeader = () => {
     current.current = id;
     setActive(id);
 
-    scrollTo(id, {
+    scrollTo(id === TOP ? 0 : id, {
       onComplete: () => {
         // Release only our own pin: a newer click has already replaced it.
         if (pinned.current?.id === id) pinned.current = null;
@@ -108,15 +116,25 @@ export const SiteHeader = () => {
         aria-label="Main navigation"
         className="pointer-events-auto flex bg-surface-paper"
       >
+        {/* The logo, first in the row: back to the hero from anywhere. */}
+        <a
+          href="/"
+          onClick={(event) => jump(event, TOP)}
+          aria-label={`${brand.name}, back to top`}
+          className="group flex items-center border border-rule-paper px-2.5 transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-paper-2"
+        >
+          <LogoMark className="size-[1.375rem] transition-transform duration-[var(--duration-fast)] ease-entrance group-hover:scale-[1.06]" />
+        </a>
+
         {nav.map((item) => {
           const on = item.id === active;
           return (
             <a
               key={item.id}
-              href={`#${item.id}`}
+              href="/"
               onClick={(event) => jump(event, item.id)}
               aria-current={on ? "true" : undefined}
-              className={`label border-y border-r first:border-l ${
+              className={`label border-y border-r ${
                 on
                   ? "border-accent bg-accent text-ink-on-ink"
                   : "border-rule-paper text-accent hover:bg-surface-paper-2"

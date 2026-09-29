@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { Action } from "@/components/ui/action";
 import { Label } from "@/components/ui/label";
+import { SectionLink } from "@/components/ui/section-link";
 import { SocialMark } from "@/components/ui/social-mark";
 import { Reveal } from "@/components/ui/reveal";
 import { GridField } from "@/views/home/grid-field";
@@ -188,7 +189,16 @@ export const Closing = () => (
             <ul className="flex flex-col gap-2.5">
               {column.links.map((link) => (
                 <li key={link.label}>
-                  {link.href ? (
+                  {/* `/#section` entries jump within the home page and keep
+                      the address at `/`; everything else is a real route. */}
+                  {link.href?.startsWith("/#") ? (
+                    <SectionLink
+                      section={link.href.slice(2)}
+                      className="text-sm text-dim-paper transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-accent"
+                    >
+                      {link.label}
+                    </SectionLink>
+                  ) : link.href ? (
                     <Link
                       href={link.href}
                       className="text-sm text-dim-paper transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-accent"
