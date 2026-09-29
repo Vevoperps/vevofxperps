@@ -203,7 +203,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: `Any injected wallet works: MetaMask, Rabby, Coinbase Wallet. ${CHAIN} (chain id ${brand.chain.id}) is added for you on connect, so there is no network to configure by hand and no RPC to paste.`,
+          body: `Any Solana wallet works: Phantom, Solflare, Backpack. ${CHAIN} is what the wallet already speaks, so there is no network to add and no RPC to paste.`,
         },
         {
           kind: "list",
@@ -228,11 +228,11 @@ export const documentation: Book = {
         },
         {
           kind: "text",
-          body: "The connect signature is not a transaction. It costs no gas, moves nothing, and can be refused at any point without leaving a trace on chain.",
+          body: "The connect signature is not a transaction. It costs no fee, moves nothing, and can be refused at any point without leaving a trace on chain.",
         },
         {
           kind: "note",
-          body: "A wallet that asks you to approve an unlimited token allowance is not doing what it should be here. Margin is transferred per deposit, not drawn from a standing approval.",
+          body: "Solana has no token allowances to grant. Every deposit is a transfer you sign, and nothing can draw on your wallet afterwards.",
         },
       ],
     },
@@ -268,7 +268,7 @@ export const documentation: Book = {
         },
         {
           kind: "text",
-          body: `A withdrawal is an ordinary transfer and costs ${CHAIN} gas, which is a fraction of a cent. There is no minimum, no daily limit and no approval step.`,
+          body: `A withdrawal is an ordinary transfer and costs a network fee on ${CHAIN}, which is a fraction of a cent. There is no minimum, no daily limit and no approval step.`,
         },
       ],
     },
@@ -736,7 +736,7 @@ export const documentation: Book = {
             { term: "Funding", body: "skew based, capped at ±0.75% per 8h." },
             {
               term: "Deposit and withdraw",
-              body: "no venue fee, only chain gas.",
+              body: "no venue fee, only the network fee.",
             },
           ],
         },
@@ -838,7 +838,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: `Your balance sits in a contract on ${CHAIN} and moves on your signature. There is no account, no password and no support process that can move funds on your behalf, because there is no mechanism that would let it.`,
+          body: `Your balance sits in a program on ${CHAIN} and moves on your signature. There is no account, no password and no support process that can move funds on your behalf, because there is no mechanism that would let it.`,
         },
         {
           kind: "list",
@@ -1155,7 +1155,7 @@ export const tradingGuide: Book = {
             { term: "Spread", body: "none. The entry is the mark." },
             {
               term: "Custody, inactivity, withdrawal",
-              body: "none. Chain gas only.",
+              body: "none. Network fee only.",
             },
           ],
         },

@@ -167,13 +167,23 @@ export const WalletConnect = () => {
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 border-b border-rule-ink/70 px-4 py-3.5 transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-ink-2"
                   >
-                    <Image
-                      src={known.icon}
-                      alt=""
-                      width={24}
-                      height={24}
-                      className="size-6 shrink-0"
-                    />
+                    {known.icon ? (
+                      <Image
+                        src={known.icon}
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="size-6 shrink-0"
+                      />
+                    ) : (
+                      // No mark shipped for this one: its initial, boxed.
+                      <span
+                        aria-hidden
+                        className="label flex size-6 shrink-0 items-center justify-center border border-rule-ink text-dim-ink"
+                      >
+                        {known.name.charAt(0)}
+                      </span>
+                    )}
                     <span className="flex-1 text-sm text-dim-ink">
                       {known.name}
                     </span>

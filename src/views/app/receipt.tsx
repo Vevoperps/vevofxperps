@@ -3,6 +3,7 @@ import { app } from "@/data/app";
 import type { Activity } from "@/lib/chain/read";
 import { brand } from "@/lib/brand";
 import { money, signed } from "@/lib/chain/units";
+import { explorerLink } from "@/lib/chain/networks";
 import { venue } from "@/lib/chain/venue";
 
 /**
@@ -125,7 +126,7 @@ export const Receipt = ({ event }: { event: Activity }) => {
         <span>{brand.url.replace(/^https?:\/\//, "")}</span>
         {venue.network.explorer ? (
           <a
-            href={`${venue.network.explorer}/tx/${event.hash}`}
+            href={explorerLink(venue.network, "tx", event.hash) ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
             className="underline underline-offset-2"

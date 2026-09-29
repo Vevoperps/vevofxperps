@@ -1,16 +1,12 @@
-import { brand } from "@/lib/brand";
-
 /**
- * What to call the chain the app is actually pointed at.
+ * What to call the cluster the app is pointed at, and where to look things up.
  *
- * The name used to come straight from `brand.chain`, which is the chain this
- * venue is *for* — and that was wrong the moment the first deployment went
- * somewhere else. A banner naming the wrong chain is not a cosmetic slip: it
- * is the app telling a visitor which chain their money is on, incorrectly.
- *
- * So the name is derived from the configured id, and an id nobody has named
- * prints as the number rather than as a guess.
+ * Derived from the configured cluster rather than assumed from the brand: a
+ * banner naming the wrong network is the app telling a visitor which network
+ * their money is on, incorrectly.
  */
+
+export type Cluster = "mainnet" | "devnet" | "localnet";
 
 export interface Network {
   name: string;
@@ -18,45 +14,41 @@ export interface Network {
   testnet: boolean;
   /** Block explorer origin, no trailing slash. */
   explorer: string | null;
+  /** Appended to explorer links: Solscan names the cluster in the query. */
+  explorerQuery: string;
+  /** The Wallet Standard chain id wallets expect, e.g. `solana:mainnet`. */
+  walletChain: `solana:${string}`;
 }
 
-const KNOWN: Record<number, Network> = {
-  1: { name: "Ethereum", testnet: false, explorer: "https://etherscan.io" },
-
-  // The venue's own chain, both ids. A page that cannot tell the live one from
-  // the test one is a page that cannot warn anybody which it is showing them.
-  4663: {
-    name: "Robinhood Chain",
+const KNOWN: Record<Cluster, Network> = {
+  mainnet: {
+    name: "Solana",
     testnet: false,
-    explorer: "https://robinhoodchain.blockscout.com",
+    explorer: "https://solscan.io",
+    explorerQuery: "",
+    walletChain: "solana:mainnet",
   },
-  46630: {
-    name: "Robinhood Chain Testnet",
+  devnet: {
+    name: "Solana Devnet",
     testnet: true,
-    explorer: "https://explorer.testnet.chain.robinhood.com",
+    explorer: "https://solscan.io",
+    explorerQuery: "?cluster=devnet",
+    walletChain: "solana:devnet",
   },
-
-  31337: { name: "a local development chain", testnet: true, explorer: null },
-  1337: { name: "a local development chain", testnet: true, explorer: null },
+  localnet: {
+    name: "a local validator",
+    testnet: true,
+    explorer: null,
+    explorerQuery: "",
+    walletChain: "solana:localnet",
+  },
 };
 
-/**
- * A rebrand can aim this venue at a chain the table does not name. That case
- * falls back to the brand's own wording rather than to a bare number — but it
- * is a fallback, not an entry, because the table also knows the explorer and
- * whether the money on that chain is real.
- *
- * Anything else prints as its id. `testnet: true` there is the safe default:
- * the worst outcome is a testnet banner over a real deployment nobody
- * configured, which is visible; the reverse is silent.
- */
-export const networkOf = (chainId: number): Network => {
-  const known = KNOWN[chainId];
-  if (known) return known;
+export const isCluster = (value: string | null | undefined): value is Cluster =>
+  value === "mainnet" || value === "devnet" || value === "localnet";
 
-  if (chainId === brand.chain.id) {
-    return { name: brand.chain.name, testnet: false, explorer: null };
-  }
+export const networkOf = (cluster: Cluster): Network => KNOWN[cluster];
 
-  return { name: `chain ${chainId}`, testnet: true, explorer: null };
-};
+/** A link to a transaction or an account on the configured cluster's explorer. */
+export const explorerLink = (network: Network, kind: "tx" | "account", id: string): string | null =>
+  network.explorer ? `${network.explorer}/${kind}/${id}${network.explorerQuery}` : null;

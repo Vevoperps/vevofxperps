@@ -147,7 +147,7 @@ export const terms: LegalPage = {
             },
             {
               term: "Not a custodian",
-              body: `margin sits in a contract on ${CHAIN} and moves on your signature.`,
+              body: `margin sits in a program on ${CHAIN} and moves on your signature.`,
             },
             {
               term: "Not an exchange of currency",

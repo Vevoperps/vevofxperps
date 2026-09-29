@@ -24,16 +24,16 @@ export const app = {
   banner:
     "this is a read-only preview. prices are simulated until the feed is connected, and deposits, orders and withdrawals are off.",
   bannerLive: (chain: string) =>
-    `live on ${chain.toLowerCase()}. every price, balance and position on this screen is read from the contract.`,
+    `live on ${chain.toLowerCase()}. every price, balance and position on this screen is read from the program.`,
   bannerLocal:
-    "connected to a local development chain. the settlement token here is a mock with an open faucet and is worth nothing.",
+    "connected to a local validator. the usdc here is a test mint and is worth nothing.",
   /**
    * A public testnet is the awkward middle: every screen is real, every
    * transaction is real, and none of the money is. Saying "live" and stopping
    * there would be true and misleading at once.
    */
   bannerTestnet: (chain: string) =>
-    `live on ${chain.toLowerCase()}, a test network. every price, balance and position is read from the contract, and the settlement token is a mock with an open faucet, worth nothing.`,
+    `live on ${chain.toLowerCase()}, a test network. every price, balance and position is read from the program, and the usdc is devnet usdc from circle's faucet, worth nothing.`,
   /**
    * `ready: false` prints the item and refuses to link it. A nav that leads to
    * a 404 is worse than one that says a screen is still being built.
@@ -60,7 +60,7 @@ export const app = {
     chainRefused: (chain: string) =>
       `the wallet would not switch to ${chain.toLowerCase()}. add it manually and try again.`,
     note: (chain: string) =>
-      `connecting only proves the address is yours. ${chain.toLowerCase()} is added on your first deposit, and deposits are off in this preview.`,
+      `connecting only proves the address is yours. nothing moves on ${chain.toLowerCase()} in this preview: deposits are off.`,
     noteLive: (chain: string) =>
       `connecting only proves the address is yours. nothing moves on ${chain.toLowerCase()} until you sign a deposit, and no one but you can move your balance afterwards.`,
     /**
@@ -74,28 +74,22 @@ export const app = {
      */
     known: [
       {
-        rdns: "io.metamask",
-        name: "MetaMask",
-        icon: "/assets/wallets/metamask.webp",
-        install: "https://metamask.io/download/",
-      },
-      {
-        rdns: "app.phantom",
+        rdns: "phantom",
         name: "Phantom",
-        icon: "/assets/wallets/phantom.webp",
+        icon: "/assets/wallets/phantom.webp" as string | null,
         install: "https://phantom.com/download",
       },
       {
-        rdns: "com.coinbase",
-        name: "Coinbase Wallet",
-        icon: "/assets/wallets/coinbase.webp",
-        install: "https://www.coinbase.com/wallet/downloads",
+        rdns: "solflare",
+        name: "Solflare",
+        icon: null as string | null,
+        install: "https://solflare.com/download",
       },
       {
-        rdns: "io.rabby",
-        name: "Rabby",
-        icon: "/assets/wallets/rabby.webp",
-        install: "https://rabby.io/",
+        rdns: "backpack",
+        name: "Backpack",
+        icon: null as string | null,
+        install: "https://backpack.app/download",
       },
     ],
   },
@@ -305,8 +299,8 @@ export const app = {
       `${asset} transfers. Idle balance ${idle}, withdrawable · ${wallet} in wallet, depositable`,
     deposit: "Deposit",
     withdraw: "Withdraw",
-    /** Local chains only: the mock settlement token's own faucet. */
-    faucet: "Faucet 10,000",
+    /** Test networks only: a link to Circle's devnet USDC faucet. */
+    faucet: "Get devnet USDC",
     columns: {
       pair: "Pair",
       side: "Side",

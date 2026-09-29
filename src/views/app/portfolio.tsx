@@ -9,7 +9,7 @@ import { app } from "@/data/app";
 import { useVenueAccount } from "@/hooks/use-venue";
 import type { Activity } from "@/lib/chain/read";
 import { brand } from "@/lib/brand";
-import { deposit, explainRevert, faucet, withdraw } from "@/lib/chain/engine";
+import { DEVNET_FAUCET_URL, deposit, explainRevert, withdraw } from "@/lib/chain/engine";
 import { money, signed, toAmount } from "@/lib/chain/units";
 import { Receipt } from "@/views/app/receipt";
 import { venue } from "@/lib/chain/venue";
@@ -224,19 +224,17 @@ export const Portfolio = ({ compact = false }: { compact?: boolean }) => {
             left no way to obtain the settlement token at all: deposit was
             available and there was nothing to deposit.
           */}
+          {/* Devnet USDC comes from Circle's public faucet, not from the
+              program, so on a test network this is a link there. */}
           {live && venue.network.testnet ? (
-            <button
-              type="button"
-              disabled={busy !== null}
-              onClick={() =>
-                run("faucet", () =>
-                  faucet(address as string, toAmount("10000", decimals)),
-                )
-              }
-              className="label border border-negative px-4 py-3 text-negative transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-negative hover:text-ink-on-ink disabled:opacity-50"
+            <a
+              href={DEVNET_FAUCET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="label border border-negative px-4 py-3 text-negative transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-negative hover:text-ink-on-ink"
             >
               {app.portfolio.faucet}
-            </button>
+            </a>
           ) : null}
         </div>
 

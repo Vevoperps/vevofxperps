@@ -27,10 +27,11 @@ export const brand = {
   },
 
   chain: {
-    name: "Robinhood Chain",
-    id: 4663,
+    name: "Solana",
+    /** Kept numeric for the screens; 101 is how the app names Solana mainnet. */
+    id: 101,
     /** The settlement asset every balance is denominated in. */
-    settlement: "USDG",
+    settlement: "USDC",
   },
 
   links: {

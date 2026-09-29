@@ -1,401 +1,237 @@
 "use client";
 
+import { Buffer } from "buffer";
 import {
-  Contract,
-  MaxUint256,
-  type ContractTransactionResponse,
-} from "ethers";
+  ComputeBudgetProgram,
+  Connection,
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
+} from "@solana/web3.js";
 
-import { FAUCET_ABI, PERP_ENGINE_ABI, SETTLEMENT_ABI } from "./abi";
-import { reader } from "./read";
-import { marketId } from "./units";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  associatedTokenAddress,
+  decodePosition,
+  instructions,
+  pdas,
+} from "./solana/vevo-client";
 import { venue } from "./venue";
-import { getSigner } from "./wallet";
+import { connectedAddress, signAndSend } from "./wallet";
 
 /**
  * Everything the app writes to the chain, and nothing else.
  *
- * Reading lives in `read.ts`, which runs on the server too. This half needs a
- * wallet, so it is client-only, and there are exactly seven calls in it:
- * approve, deposit, withdraw, open, close, reduce and add margin. The app
- * holds no key and signs nothing on anybody's behalf.
+ * Each write is built here, **simulated against the current state first**,
+ * and only then handed to the wallet. A transaction that is going to fail
+ * fails in the simulation, where the program's own error name is in the logs
+ * and `explainRevert` can turn it into a sentence — rather than after the
+ * signing dialog has opened and cost a click.
+ *
+ * The app holds no key and signs nothing on anybody's behalf.
  */
 
-const signerOrThrow = async () => {
-  const signer = await getSigner();
-  if (!signer) throw new Error("no wallet connected");
-  return signer;
+let client: Connection | null = null;
+
+const connection = (): Connection => {
+  if (!venue.live || !venue.rpcUrl) throw new Error("the venue is not live");
+  client ??= new Connection(venue.rpcUrl, "confirmed");
+  return client;
 };
+
+const owner = (): PublicKey => {
+  const address = connectedAddress();
+  if (!address) throw new Error("no wallet connected");
+  return new PublicKey(address);
+};
+
+const venueIx = () =>
+  instructions({ programId: new PublicKey(venue.engine as string), mint: new PublicKey(venue.settlement as string) });
 
 /**
- * What every transaction pays, decided here rather than by the wallet.
- *
- * **Why the app sets this at all.** On Orbit rollups `eth_gasPrice` can
- * answer with a number *below* the chain's own `baseFeePerGas`. A wallet that
- * trusts that answer — MetaMask does — builds a transaction the same node then
- * refuses, with `max fee per gas less than block base fee`. Nothing is wrong
- * with the wallet or the balance; the estimate is simply stale by one block.
- *
- * So the fee is quoted from the block header, which cannot disagree with
- * itself, with room for the base fee to climb before the transaction lands.
- * Under EIP-1559 the surplus is not spent: the chain charges the base fee and
- * the tip, and refunds the rest, so bidding high costs nothing and only buys
- * tolerance for a rising fee.
+ * Creates the wallet's USDC account if it does not exist yet (the idempotent
+ * form, which does nothing when it does). Withdrawals need somewhere to land.
  */
-interface FeeOverrides {
-  maxFeePerGas: bigint;
-  maxPriorityFeePerGas: bigint;
-}
-
-/** 0.01 gwei. Arbitrum's sequencer orders by arrival, so the tip is a formality. */
-const PRIORITY_FEE = 10_000_000n;
-
-/** 0.1 gwei, for the case where a node reports no base fee at all. */
-const FEE_FLOOR = 100_000_000n;
-
-/** How many times the current base fee to allow for. */
-const HEADROOM = 4n;
-
-const fees = async (): Promise<FeeOverrides> => {
-  const signer = await signerOrThrow();
-  const block = await signer.provider.getBlock("latest");
-
-  const base = block?.baseFeePerGas ?? 0n;
-  const bid = base * HEADROOM + PRIORITY_FEE;
-
-  return {
-    maxFeePerGas: bid > FEE_FLOOR ? bid : FEE_FLOOR,
-    maxPriorityFeePerGas: PRIORITY_FEE,
-  };
+const ensureTokenAccount = (payer: PublicKey): TransactionInstruction => {
+  const mint = new PublicKey(venue.settlement as string);
+  return new TransactionInstruction({
+    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: associatedTokenAddress(mint, payer), isSigner: false, isWritable: true },
+      { pubkey: payer, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.from([1]),
+  });
 };
 
-interface WritableEngine {
-  deposit(
-    amount: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  addLiquidity(
-    amount: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  removeLiquidity(
-    shares: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  withdraw(
-    amount: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  openPosition(
-    market: string,
-    isLong: boolean,
-    margin: bigint,
-    leverage: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  closePosition(
-    market: string,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  reducePosition(
-    market: string,
-    notionalToClose: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-  addMargin(
-    market: string,
-    amount: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-}
-
-interface WritableToken {
-  allowance(owner: string, spender: string): Promise<bigint>;
-  approve(
-    spender: string,
-    amount: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
-}
-
-interface Faucet {
-  mint(
-    to: string,
-    amount: bigint,
-    overrides: FeeOverrides,
-  ): Promise<ContractTransactionResponse>;
+/** Thrown with the program's logs attached, for `explainRevert` to read. */
+class SimulationFailed extends Error {
+  constructor(readonly logs: string[], detail: string) {
+    super(detail);
+    this.name = "SimulationFailed";
+  }
 }
 
 /**
- * Runs a call against the chain before the wallet is asked to sign it.
+ * Builds, simulates, signs and confirms one transaction.
  *
- * **Why the app simulates at all.** A write that is going to revert reverts
- * twice: once in the wallet's own gas estimate, and once on the node. What the
- * user sees of that is whatever the wallet chooses to surface, and MetaMask
- * flattens a revert it cannot parse into `Internal JSON-RPC error` — six words
- * that name neither the cause nor the fix. Worse, it shows them *after* the
- * signing dialog has opened, so a doomed transaction still costs a click and a
- * moment of believing it might work.
- *
- * So every write is dry-run here first, through the app's own provider rather
- * than the wallet's. `eth_call` returns the revert data intact, ethers decodes
- * it against the ABI — which carries every custom error the engine can throw —
- * and the name lands in `error.revert.name`, where `REASONS` turns it into a
- * sentence. The wallet is only opened for a transaction that has already
- * succeeded once against the current state.
- *
- * It is a simulation, not a guarantee: the state can move between the call and
- * the signature. That is the narrow case the revert decoding still covers.
+ * A small priority fee is attached: a trade that lands a few slots late fills
+ * at a later mark, and on a busy network the fee is what keeps it prompt.
  */
-const preflight = async (name: string, args: unknown[]): Promise<void> => {
-  const from = await (await signerOrThrow()).getAddress();
-  const engine = new Contract(
-    venue.engine as string,
-    PERP_ENGINE_ABI as unknown as string[],
-    reader(),
-  );
+const run = async (payload: TransactionInstruction[]): Promise<string> => {
+  const payer = owner();
+  const rpc = connection();
 
-  await engine.getFunction(name).staticCall(...args, { from });
+  const { blockhash, lastValidBlockHeight } = await rpc.getLatestBlockhash("confirmed");
+  const message = new TransactionMessage({
+    payerKey: payer,
+    recentBlockhash: blockhash,
+    instructions: [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 20_000 }),
+      ...payload,
+    ],
+  }).compileToV0Message();
+  const transaction = new VersionedTransaction(message);
+
+  const simulation = await rpc.simulateTransaction(transaction, { sigVerify: false });
+  if (simulation.value.err) {
+    throw new SimulationFailed(simulation.value.logs ?? [], JSON.stringify(simulation.value.err));
+  }
+
+  const result = await signAndSend(transaction.serialize());
+
+  let signature: string;
+  if ("signature" in result) {
+    signature = encodeBase58(result.signature);
+  } else {
+    signature = await rpc.sendRawTransaction(result.signed, { skipPreflight: true });
+  }
+
+  const confirmation = await rpc.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  if (confirmation.value.err) throw new Error(`transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+  return signature;
 };
 
-const writeEngine = async (): Promise<WritableEngine> =>
-  new Contract(
-    venue.engine as string,
-    PERP_ENGINE_ABI as unknown as string[],
-    await signerOrThrow(),
-  ) as unknown as WritableEngine;
+// A signature comes back from the wallet as bytes; the RPC wants base58.
+const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const encodeBase58 = (bytes: Uint8Array): string => {
+  let value = 0n;
+  for (const byte of bytes) value = value * 256n + BigInt(byte);
+  let out = "";
+  while (value > 0n) {
+    out = ALPHABET.charAt(Number(value % 58n)) + out;
+    value /= 58n;
+  }
+  for (const byte of bytes) {
+    if (byte !== 0) break;
+    out = `1${out}`;
+  }
+  return out;
+};
 
-const writeToken = async (): Promise<WritableToken> =>
-  new Contract(
-    venue.settlement as string,
-    SETTLEMENT_ABI as unknown as string[],
-    await signerOrThrow(),
-  ) as unknown as WritableToken;
-
-/**
- * Approves the engine, once, if it needs approving.
- *
- * An unlimited approval to a contract that can only pull what the caller has
- * just asked it to pull, and that the caller can withdraw from at any moment,
- * is the right trade against making somebody sign twice for every deposit.
- */
+/** Solana has no token approvals: every transfer is signed by its owner. */
 export const approveIfNeeded = async (amount: bigint): Promise<void> => {
-  const signer = await signerOrThrow();
-  const token = await writeToken();
-
-  const allowance = await token.allowance(
-    await signer.getAddress(),
-    venue.engine as string,
-  );
-  if (allowance >= amount) return;
-
-  const transaction = await token.approve(
-    venue.engine as string,
-    MaxUint256,
-    await fees(),
-  );
-  await transaction.wait();
+  void amount;
 };
 
 export const deposit = async (amount: bigint): Promise<void> => {
-  await approveIfNeeded(amount);
-  await preflight("deposit", [amount]);
-  const transaction = await (await writeEngine()).deposit(amount, await fees());
-  await transaction.wait();
-};
-
-/**
- * Back the venue's side of the book.
- *
- * Same approval as a deposit — the engine holds one token and pulls it the
- * same way — but the money goes into the pool rather than into a balance, and
- * what comes back is shares of it.
- */
-export const addLiquidity = async (amount: bigint): Promise<void> => {
-  await approveIfNeeded(amount);
-  await preflight("addLiquidity", [amount]);
-  const transaction = await (
-    await writeEngine()
-  ).addLiquidity(amount, await fees());
-  await transaction.wait();
-};
-
-/** Redeem shares. Only the part of the pool no open position has reserved. */
-export const removeLiquidity = async (shares: bigint): Promise<void> => {
-  await preflight("removeLiquidity", [shares]);
-  const transaction = await (
-    await writeEngine()
-  ).removeLiquidity(shares, await fees());
-  await transaction.wait();
+  await run([venueIx().deposit(owner(), amount)]);
 };
 
 export const withdraw = async (amount: bigint): Promise<void> => {
-  await preflight("withdraw", [amount]);
-  const transaction = await (
-    await writeEngine()
-  ).withdraw(amount, await fees());
-  await transaction.wait();
+  const me = owner();
+  await run([ensureTokenAccount(me), venueIx().withdraw(me, amount)]);
 };
 
-export const openPosition = async (
-  symbol: string,
-  isLong: boolean,
-  margin: bigint,
-  leverage: number,
-): Promise<void> => {
-  await preflight("openPosition", [
-    marketId(symbol),
-    isLong,
-    margin,
-    BigInt(leverage),
-  ]);
-  const transaction = await (
-    await writeEngine()
-  ).openPosition(
-    marketId(symbol),
-    isLong,
-    margin,
-    BigInt(leverage),
-    await fees(),
-  );
-  await transaction.wait();
+/** Backs the venue's side of the book, in exchange for shares of the pool. */
+export const addLiquidity = async (amount: bigint): Promise<void> => {
+  await run([venueIx().addLiquidity(owner(), amount)]);
 };
 
+/** Redeems shares — only the part of the pool no open position has reserved. */
+export const removeLiquidity = async (shares: bigint): Promise<void> => {
+  const me = owner();
+  await run([ensureTokenAccount(me), venueIx().removeLiquidity(me, shares)]);
+};
+
+export const openPosition = async (symbol: string, isLong: boolean, margin: bigint, leverage: number): Promise<void> => {
+  await run([venueIx().openPosition(owner(), symbol, isLong, margin, leverage)]);
+};
+
+export const reducePosition = async (symbol: string, notional: bigint): Promise<void> => {
+  await run([venueIx().reducePosition(owner(), symbol, notional)]);
+};
+
+/** A full close is a reduce by the whole notional, read fresh off the chain. */
 export const closePosition = async (symbol: string): Promise<void> => {
-  await preflight("closePosition", [marketId(symbol)]);
-  const transaction = await (
-    await writeEngine()
-  ).closePosition(marketId(symbol), await fees());
-  await transaction.wait();
+  const me = owner();
+  const at = pdas(new PublicKey(venue.engine as string));
+  const info = await connection().getAccountInfo(at.position(at.market(symbol), me));
+  if (!info) throw new SimulationFailed([], "NoPosition");
+  const { notional } = decodePosition(info.data);
+  await reducePosition(symbol, notional);
 };
 
-export const reducePosition = async (
-  symbol: string,
-  notional: bigint,
-): Promise<void> => {
-  await preflight("reducePosition", [marketId(symbol), notional]);
-  const transaction = await (
-    await writeEngine()
-  ).reducePosition(marketId(symbol), notional, await fees());
-  await transaction.wait();
-};
-
-export const addMargin = async (
-  symbol: string,
-  amount: bigint,
-): Promise<void> => {
-  await approveIfNeeded(amount);
-  await preflight("addMargin", [marketId(symbol), amount]);
-  const transaction = await (
-    await writeEngine()
-  ).addMargin(marketId(symbol), amount, await fees());
-  await transaction.wait();
+export const addMargin = async (symbol: string, amount: bigint): Promise<void> => {
+  await run([venueIx().addMargin(owner(), symbol, amount)]);
 };
 
 /**
- * The testnet faucet.
- *
- * `mint` exists on the mock settlement token and on nothing else, so it is
- * offered only on a local chain rather than shown and then failing.
+ * Test USDC. On devnet it comes from Circle's public faucet, not from us, so
+ * the screen links there instead of calling this; it is kept for the EVM-era
+ * import and says where to go.
  */
+export const DEVNET_FAUCET_URL = "https://faucet.circle.com";
+
 export const faucet = async (to: string, amount: bigint): Promise<void> => {
-  // Test networks, not just local ones. The faucet is a function on the mock
-  // settlement token; where the token is real there is nothing to call, and a
-  // deployment against a real token has no business minting it.
-  if (!venue.network.testnet) {
-    throw new Error("the faucet exists only on a test network");
-  }
-
-  const token = new Contract(
-    venue.settlement as string,
-    FAUCET_ABI as unknown as string[],
-    await signerOrThrow(),
-  ) as unknown as Faucet;
-
-  const transaction = await token.mint(to, amount, await fees());
-  await transaction.wait();
+  void to;
+  void amount;
+  throw new Error(`devnet USDC comes from ${DEVNET_FAUCET_URL}`);
 };
 
 /**
- * Turns a revert into something a person can act on.
- *
- * The engine's errors are named for exactly this: `InsufficientLiquidity`
- * means the pool cannot back this position's payout cap, which is a completely
- * different problem from `InsufficientBalance`, and a user told "transaction
- * failed" learns neither.
+ * Turns a failure into something a person can act on. Anchor prints
+ * `Error Code: <Name>` in the logs; the names are the program's own.
  */
 const REASONS: Record<string, string> = {
   InsufficientBalance: "not enough free balance",
   InsufficientLiquidity: "the pool cannot back that payout cap right now",
+  EmptyPool: "the pool is empty",
   LeverageTooHigh: "above this pair's leverage cap",
   MarginTooSmall: "below this pair's minimum margin",
   MarketIsPaused: "this market is paused",
   OpenInterestCap: "this side of the book is full",
-  PositionAlreadyOpen: "you already have a position on this pair",
-  NoPosition: "nothing open on this pair",
-  UnknownMarket: "this pair is not listed",
+  StalePrice: "this pair's price is warming up, try again in a few seconds",
+  NoFeed: "this pair has not been priced yet",
   NotLiquidatable: "that position is still above its maintenance margin",
+  BadCloseAmount: "that is more than the position holds",
+  NoPosition: "nothing open on this pair",
   ZeroAmount: "enter an amount",
-};
-
-/**
- * Everywhere a cause can hide.
- *
- * A wallet's rejection arrives wrapped: ethers puts its own summary on the
- * outside and the node's words two or three objects down. Read only the
- * outside and the whole message can come back as `could not coalesce error`,
- * which describes ethers' difficulty and not the user's.
- */
-interface ErrorShape {
-  /** Ethers decodes a custom error here when the ABI declares it. */
-  revert?: { name?: string };
-  shortMessage?: string;
-  reason?: string;
-  message?: string;
-  error?: { message?: string };
-  data?: { message?: string };
-  info?: { error?: { message?: string } };
-}
-
-const causes = (error: unknown): string[] => {
-  const shape = (error ?? {}) as ErrorShape;
-  return [
-    shape.revert?.name,
-    shape.info?.error?.message,
-    shape.error?.message,
-    shape.data?.message,
-    shape.reason,
-    shape.shortMessage,
-    shape.message,
-  ].filter((part): part is string => typeof part === "string" && part !== "");
+  "already in use": "you already have a position on this pair",
+  "insufficient lamports": "not enough SOL in the wallet for the fee",
+  AccountNotInitialized: "this wallet has no USDC account yet, or nothing deposited in the venue",
 };
 
 export const explainRevert = (error: unknown): string => {
-  const parts = causes(error);
-  const text = parts.join(" ");
+  const logs = error instanceof SimulationFailed ? error.logs : [];
+  const message = error instanceof Error ? error.message : String(error);
+  const text = `${logs.join(" ")} ${message}`;
 
   for (const [name, plain] of Object.entries(REASONS)) {
     if (text.includes(name)) return plain;
   }
 
-  if (/user rejected|ACTION_REJECTED/i.test(text)) return "you cancelled it";
-  if (/insufficient funds/i.test(text)) return "not enough gas in the wallet";
+  if (/user rejected|rejected the request|declined|cancel/i.test(text)) return "you cancelled it";
+  if (/0x1\b|insufficient funds/i.test(text)) return "not enough USDC in the wallet";
 
-  // The chain priced the transaction below its own base fee. The app quotes
-  // the fee from the block header precisely so this cannot happen, so if it
-  // still does, the wallet overrode it — and saying which knob to turn is more
-  // use than repeating the node's wording.
-  if (/max fee per gas less than block base fee/i.test(text)) {
-    return "the wallet bid below the network's base fee. raise the max fee in its advanced gas settings, or try again";
-  }
-
-  // Nothing recognised it. Say so, and hand over what the chain actually
-  // said — an unexplained failure with the cause thrown away is the one
-  // outcome nobody can act on, neither the person hitting the button nor
-  // whoever they report it to. The innermost cause is first, so it is the one
-  // quoted.
-  const detail = parts[0]?.trim();
-  return detail
-    ? `the transaction did not go through: ${detail.slice(0, 160)}`
-    : "the transaction did not go through";
+  const detail = message.trim();
+  return detail ? `the transaction did not go through: ${detail.slice(0, 160)}` : "the transaction did not go through";
 };

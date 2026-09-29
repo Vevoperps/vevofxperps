@@ -1,0 +1,24 @@
+{
+  "name": "vevo-keeper-solana",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/copy-client.mjs && tsc -p tsconfig.json",
+    "start": "node --env-file=.env dist/index.js",
+    "once": "node --env-file=.env dist/index.js --once"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.2",
+    "bs58": "^6.0.0",
+    "buffer": "^6.0.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

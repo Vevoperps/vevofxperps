@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
+
 
 import { ApiError, handle } from "@/lib/api";
 import {
@@ -25,8 +27,17 @@ import { PAIRS } from "@/lib/markets";
  */
 export const dynamic = "force-dynamic";
 
+/** A real 32-byte public key, not merely a base58-looking string. */
+const isSolanaAddress = (value: string): boolean => {
+  try {
+    return new PublicKey(value).toBase58() === value;
+  } catch {
+    return false;
+  }
+};
+
 const query = z.object({
-  address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "expected an address"),
+  address: z.string().refine(isSolanaAddress, "expected a Solana address"),
 });
 
 export interface AccountSnapshot {

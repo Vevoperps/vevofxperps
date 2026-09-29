@@ -1,46 +1,52 @@
-import { formatUnits, id, parseUnits } from "ethers";
-
 /**
  * Moving between the chain's integers and the screen's numbers.
  *
- * Two scales are in play and mixing them is the classic way to lose a factor
- * of a thousand: **prices are always 1e18**, whatever the pair, and **amounts
- * are in the settlement token's own decimals**, which the app reads off the
- * token rather than assuming. The engine's own arithmetic is immune to this —
- * a pnl is a notional scaled by a ratio of two prices, so the scale cancels —
- * but the moment a number reaches a screen it has to be the right one.
+ * Two scales are in play: **prices are always 1e18**, whatever the pair, and
+ * **amounts are in USDC's own six decimals**. The program's arithmetic is
+ * immune to the difference — a pnl is a notional scaled by a ratio of two
+ * prices — but the moment a number reaches a screen it has to be the right one.
  */
 
-/** Prices, everywhere, at every pair. */
 export const PRICE_DECIMALS = 18;
 
-/** `keccak256("USDJPY")` — how the engine names a market. */
-export const marketId = (symbol: string): string => id(symbol.toUpperCase());
+/** On Solana a market is named by its symbol (it seeds the market's address). */
+export const marketId = (symbol: string): string => symbol.toUpperCase();
 
-export const fromPrice = (value: bigint): number =>
-  Number(formatUnits(value, PRICE_DECIMALS));
+const format = (value: bigint, decimals: number): string => {
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const base = 10n ** BigInt(decimals);
+  const whole = abs / base;
+  const fraction = (abs % base).toString().padStart(decimals, "0").replace(/0+$/, "");
+  return `${negative ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
+};
 
-export const toPrice = (value: number): bigint =>
-  parseUnits(value.toFixed(PRICE_DECIMALS), PRICE_DECIMALS);
+const parse = (value: string, decimals: number): bigint => {
+  const negative = value.trim().startsWith("-");
+  const [whole = "0", fraction = ""] = value.trim().replace(/^-/, "").split(".");
+  const padded = (fraction + "0".repeat(decimals)).slice(0, decimals);
+  const magnitude = BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(padded || "0");
+  return negative ? -magnitude : magnitude;
+};
 
-/** Settlement amounts. `decimals` comes from the token, never from a guess. */
-export const fromAmount = (value: bigint, decimals: number): number =>
-  Number(formatUnits(value, decimals));
+export const fromPrice = (value: bigint): number => Number(format(value, PRICE_DECIMALS));
+
+export const toPrice = (value: number): bigint => parse(value.toFixed(PRICE_DECIMALS), PRICE_DECIMALS);
+
+/** Settlement amounts. */
+export const fromAmount = (value: bigint, decimals: number): number => Number(format(value, decimals));
 
 /**
- * Parses what somebody typed.
- *
- * Anything past the token's own precision is dropped rather than rounded up:
- * a deposit is not the place to invent a fraction of a cent the user did not
- * have.
+ * Parses what somebody typed. Anything past the token's own precision is
+ * dropped rather than rounded up: a deposit is not the place to invent a
+ * fraction of a cent the user did not have.
  */
 export const toAmount = (value: string, decimals: number): bigint => {
   const cleaned = value.trim().replace(/,/g, "");
   if (!cleaned || !/^\d*\.?\d*$/.test(cleaned)) return 0n;
 
   const [whole, fraction = ""] = cleaned.split(".");
-  const trimmed = fraction.slice(0, decimals);
-  return parseUnits(`${whole || "0"}.${trimmed || "0"}`, decimals);
+  return parse(`${whole || "0"}.${fraction.slice(0, decimals) || "0"}`, decimals);
 };
 
 /** For display, at the precision money is read in. */
@@ -51,13 +57,8 @@ export const money = (value: number): string =>
   });
 
 /**
- * The same, signed, for a result that can go either way.
- *
- * An amount that rounds away to nothing loses its sign. Funding on a small
- * position is a fraction of a cent, and printing it as `−0.00` reads as a
- * broken number rather than as a negligible one: a minus sign in front of
- * zero is a contradiction the eye catches before the brain. Below half a
- * cent there is no direction left to report, so none is printed.
+ * The same, signed. Below half a cent there is no direction left to report,
+ * so no sign is printed — `−0.00` reads as a broken number.
  */
 export const signed = (value: number): string => {
   const magnitude = money(Math.abs(value));

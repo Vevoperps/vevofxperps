@@ -88,7 +88,7 @@ export const handbook = {
       blocks: [
         {
           kind: "text",
-          body: `Any injected wallet works: MetaMask, Rabby, Coinbase Wallet. ${brand.chain.name} (chain id ${brand.chain.id}) is added for you on connect, so there is no network to configure by hand.`,
+          body: `Any Solana wallet works: Phantom, Solflare, Backpack. ${brand.chain.name} is what the wallet already speaks, so there is no network to configure by hand.`,
         },
         {
           kind: "list",
@@ -135,7 +135,7 @@ export const handbook = {
       blocks: [
         {
           kind: "text",
-          body: "Margin is what you put up. Leverage is how much position that margin controls. 250 USDG at 10x is a 2,500 USDG position, and a 1% move against it costs 25 USDG, a tenth of your margin.",
+          body: "Margin is what you put up. Leverage is how much position that margin controls. 250 USDC at 10x is a 2,500 USDC position, and a 1% move against it costs 25 USDC, a tenth of your margin.",
         },
         {
           kind: "list",
@@ -204,7 +204,7 @@ export const handbook = {
             { term: "Open", body: "0.05% of notional." },
             { term: "Close", body: "0.05% of notional." },
             { term: "Funding", body: "skew based, capped at ±0.75% per 8h." },
-            { term: "Deposit and withdraw", body: "no venue fee, only chain gas." },
+            { term: "Deposit and withdraw", body: "no venue fee, only the network fee." },
           ],
         },
         {

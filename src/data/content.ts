@@ -138,7 +138,7 @@ export const howItWorks = {
       n: "001",
       icon: "layers",
       title: "Connect your wallet",
-      body: `metamask, rabby or coinbase wallet. ${brand.chain.name.toLowerCase()} is added for you.`,
+      body: `phantom, solflare or backpack. nothing to add, no network to switch.`,
     },
     {
       n: "002",
@@ -210,7 +210,7 @@ export const ticket = {
     src: "/assets/ticket.webp",
     width: 798,
     height: 1758,
-    alt: "A printed ticket: USDJPY, long at 25x, 1,000 USDG margin, filled at 147.382, liquidation at 141.064.",
+    alt: "A printed ticket: USDJPY, long at 25x, 1,000 USDC margin, filled at 147.382, liquidation at 141.064.",
   },
   /** Printed under the machine, in mono, while the paper feeds. */
   status: {
@@ -388,7 +388,7 @@ export const pricing = {
       value: "0",
       unit: "venue fees",
       includes: [
-        "only chain gas on deposits",
+        "only network fees on deposits",
         "withdraw idle balance any time",
         "cancelled orders fully refunded",
       ],
@@ -469,7 +469,7 @@ export const faq = {
     {
       n: "006",
       q: "What do I need to start?",
-      a: `a wallet such as metamask, rabby or coinbase wallet, and ${brand.chain.settlement} on ${brand.chain.name.toLowerCase()}. the chain is added to your wallet automatically.`,
+      a: `a solana wallet such as phantom, solflare or backpack, ${brand.chain.settlement} on ${brand.chain.name.toLowerCase()}, and a little sol for network fees.`,
     },
   ],
 };

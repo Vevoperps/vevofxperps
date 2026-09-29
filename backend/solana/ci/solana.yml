@@ -1,0 +1,85 @@
+name: solana program
+
+# Builds and tests the Anchor program on every push that touches it. This is
+# the build machine for anyone without a Linux toolchain: push the branch, and
+# the log below says whether the program compiles and whether the handbook
+# still holds as assertions.
+on:
+  push:
+    branches: [main, solana]
+    paths:
+      - "backend/solana/**"
+      - "backend/shared/**"
+      - ".github/workflows/solana.yml"
+  pull_request:
+    paths:
+      - "backend/solana/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  program:
+    name: build and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/solana
+    steps:
+      - uses: actions/checkout@v4
+
+      # The official one-liner: Rust, the Solana CLI (Agave), AVM and Anchor.
+      - name: Install Rust, Solana CLI and Anchor
+        working-directory: .
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
+
+      # Pin Anchor to the version Anchor.toml and Cargo.toml ask for, whatever
+      # the installer considers latest today.
+      - name: Pin Anchor 1.2.0
+        run: |
+          avm install 1.2.0 || true
+          avm use 1.2.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend/solana
+
+      - name: Versions
+        run: |
+          rustc --version
+          solana --version
+          anchor --version
+
+      # Pure arithmetic first: fee, maintenance, both liquidation distances,
+      # the payout cap and funding. Fast, and independent of the validator.
+      - name: Math unit tests
+        run: cargo test -p vevo --lib
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install JS dependencies
+        run: yarn install
+
+      # A throwaway wallet for the local validator. Worthless and discarded.
+      - name: Local wallet
+        run: solana-keygen new --no-bip39-passphrase --silent --force -o "$HOME/.config/solana/id.json"
+
+      # The first build creates target/deploy/vevo-keypair.json; `keys sync`
+      # then points declare_id! and Anchor.toml at it, and the second build
+      # bakes that address in.
+      - name: Build
+        run: |
+          anchor build
+          anchor keys sync
+          anchor build
+
+      - name: Test
+        run: anchor test --skip-build --validator legacy

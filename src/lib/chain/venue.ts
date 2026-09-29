@@ -1,19 +1,22 @@
-import { brand } from "@/lib/brand";
-import { networkOf } from "@/lib/chain/networks";
+import { PublicKey } from "@solana/web3.js";
+
+import { isCluster, networkOf, type Cluster } from "@/lib/chain/networks";
 
 /**
  * Where the venue lives, and whether it exists yet.
  *
- * The app is built to run in two states and to be honest about which one it is
- * in. With no addresses configured it is the preview: generated marks, a
- * ticket that prices correctly and refuses to submit, a banner that says so.
- * With them, every screen reads the chain and every button works. Nothing in
- * between, and no button that looks live over a feature that is not.
+ * The app runs in two states and says which one it is in. With no program
+ * configured it is the preview: generated marks, a ticket that prices
+ * correctly and refuses to submit, a banner that says so. With one, every
+ * screen reads the program and every button works. Nothing in between.
  *
- * The addresses are `NEXT_PUBLIC_` on purpose — a contract address is public
- * the moment it is deployed, and the browser cannot talk to a chain it is not
- * allowed to know the address of. Nothing secret is ever put here; the app has
- * no server-side key and never signs anything itself.
+ * The addresses are `NEXT_PUBLIC_` on purpose — a program address is public
+ * the moment it is deployed. Nothing secret goes here; the app holds no key
+ * and never signs anything itself.
+ *
+ * The field names (`engine`, `settlement`, `chainId`) are the ones the screens
+ * were written against on the EVM deployment; on Solana `engine` is the
+ * program id and `settlement` the USDC mint.
  */
 
 const read = (value: string | undefined): string | null => {
@@ -21,59 +24,43 @@ const read = (value: string | undefined): string | null => {
   return trimmed ? trimmed : null;
 };
 
-const engine = read(process.env.NEXT_PUBLIC_ENGINE_ADDRESS);
-const settlement = read(process.env.NEXT_PUBLIC_SETTLEMENT_ADDRESS);
-const rpcUrl = read(process.env.NEXT_PUBLIC_RPC_URL);
-const chainId = Number(read(process.env.NEXT_PUBLIC_CHAIN_ID) ?? brand.chain.id);
-const deployBlock = Number(read(process.env.NEXT_PUBLIC_DEPLOY_BLOCK) ?? 0);
+const asKey = (value: string | null): string | null => {
+  if (!value) return null;
+  try {
+    return new PublicKey(value).toBase58();
+  } catch {
+    return null;
+  }
+};
 
-/** A deployed address is 20 bytes of hex and nothing else. */
-const isAddress = (value: string | null): value is string =>
-  value !== null && /^0x[0-9a-fA-F]{40}$/.test(value);
+const clusterRaw = read(process.env.NEXT_PUBLIC_CLUSTER);
+const cluster: Cluster = isCluster(clusterRaw) ? clusterRaw : "mainnet";
+
+const engine = asKey(read(process.env.NEXT_PUBLIC_PROGRAM_ID));
+const settlement = asKey(read(process.env.NEXT_PUBLIC_USDC_MINT));
+const rpcUrl = read(process.env.NEXT_PUBLIC_RPC_URL);
+
+/** A stable number per cluster, so screens can compare "is the wallet here". */
+const CHAIN_IDS: Record<Cluster, number> = { mainnet: 101, devnet: 103, localnet: 0 };
 
 export const venue = {
-  /**
-   * True only when every piece needed to read and write is present.
-   *
-   * Every live path in the app is behind this one flag, so the preview cannot
-   * drift into half-working: either the venue is configured and the app trades,
-   * or it is not and the app says so.
-   */
-  live: isAddress(engine) && isAddress(settlement) && rpcUrl !== null,
+  /** True only when the program, the mint and an RPC are all configured. */
+  live: engine !== null && settlement !== null && rpcUrl !== null,
 
-  engine: isAddress(engine) ? engine : null,
-  settlement: isAddress(settlement) ? settlement : null,
+  /** The program id. */
+  engine,
+  /** The USDC mint. */
+  settlement,
   rpcUrl,
-  chainId,
+  cluster,
+  chainId: CHAIN_IDS[cluster],
 
-  /**
-   * The block the engine was deployed at.
-   *
-   * Log queries start here. Left at zero a public node will usually refuse the
-   * range, and the activity list simply comes back empty rather than breaking
-   * anything — so it is worth setting, and not worth blocking on.
-   */
-  deployBlock: Number.isFinite(deployBlock) ? deployBlock : 0,
+  /** Kept for the screens' sake; Solana history is paged by signature. */
+  deployBlock: 0,
 
-  /** What a wallet needs to add the chain if it does not know it. */
-  /** What to call the configured chain, and whether its tokens are play money. */
-  network: networkOf(chainId),
+  network: networkOf(cluster),
 
-  chain: {
-    chainId: `0x${chainId.toString(16)}`,
-    chainName: networkOf(chainId).name,
-    rpcUrls: rpcUrl ? [rpcUrl] : [],
-    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  },
-
-  /**
-   * A local chain is a development chain, and the app says so out loud.
-   *
-   * 31337 is Anvil's. Nobody should ever see this in production, and if they
-   * do, the banner is the cheapest possible way to find out.
-   */
-  isLocal: chainId === 31337 || chainId === 1337,
+  isLocal: cluster === "localnet",
 } as const;
 
-/** The id the engine knows a pair by is the hash of its symbol. */
 export type MarketId = string;

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
+
 
 import { ApiError, handle } from "@/lib/api";
 import { readPool, type Pool } from "@/lib/chain/read";
@@ -15,12 +17,21 @@ import { venue } from "@/lib/chain/venue";
  */
 export const dynamic = "force-dynamic";
 
+/** A real 32-byte public key, not merely a base58-looking string. */
+const isSolanaAddress = (value: string): boolean => {
+  try {
+    return new PublicKey(value).toBase58() === value;
+  } catch {
+    return false;
+  }
+};
+
 export type { Pool };
 
 const query = z.object({
   address: z
     .string()
-    .regex(/^0x[0-9a-fA-F]{40}$/, "expected an address")
+    .refine(isSolanaAddress, "expected a Solana address")
     .optional(),
 });
 

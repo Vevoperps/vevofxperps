@@ -1,0 +1,13 @@
+target/
+node_modules/
+.anchor/
+test-ledger/
+.surfpool/
+# Keypairs are wallets. The program keypair is the program's address and its
+# upgrade key; lose it and you lose the ability to upgrade, leak it and anyone
+# can deploy over you.
+*-keypair.json
+*.key.json
+.env
+.env.*
+!.env.example

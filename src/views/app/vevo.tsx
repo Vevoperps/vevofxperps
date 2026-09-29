@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { app } from "@/data/app";
 import { brand } from "@/lib/brand";
+import { explorerLink } from "@/lib/chain/networks";
 import { venue } from "@/lib/chain/venue";
 import { PreviewBanner } from "@/views/app/app-shell";
 import { GridField } from "@/views/home/grid-field";
@@ -196,7 +197,7 @@ export const AppVevo = () => {
                   </button>
                   {venue.network.explorer ? (
                     <a
-                      href={`${venue.network.explorer}/address/${address}`}
+                      href={explorerLink(venue.network, "account", address) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="label border border-rule-ink px-4 py-2.5 text-accent transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-accent hover:text-ink-on-ink"

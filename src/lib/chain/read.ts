@@ -1,20 +1,34 @@
-import { Contract, JsonRpcProvider } from "ethers";
+import { Connection, PublicKey, type AccountInfo } from "@solana/web3.js";
 
-import { PERP_ENGINE_ABI, SETTLEMENT_ABI } from "./abi";
-import { fromAmount, fromPrice, marketId } from "./units";
+import {
+  associatedTokenAddress,
+  decodeConfig,
+  decodeEvents,
+  decodeMarket,
+  decodeMarks,
+  decodePosition,
+  decodeTrader,
+  fundingRate,
+  pdas,
+  positionView,
+  type MarkSlot,
+  type MarketAccount,
+} from "./solana/vevo-client";
+import { fromAmount, fromPrice } from "./units";
 import { venue } from "./venue";
 
 /**
  * Reading the venue. No wallet, no signing, no browser required.
  *
- * Deliberately separate from `engine.ts`, which is client-only because it
- * needs a wallet to sign with: the reads have to run on the server too, since
- * the rates table is served by `/api/markets` and one RPC call per request
- * beats sixty-four RPC calls per visitor.
+ * Runs on the server behind `/api/*`, so the RPC stays off the public page and
+ * one request serves every tab. Every function returns plain numbers:
+ * fixed-point belongs in the program, and a component that has to remember
+ * whether a number is 1e18 or 1e6 will eventually forget.
  *
- * Every function returns plain numbers. Fixed-point belongs in the contract; a
- * component that has to remember whether a number is 1e18 or 1e6 will
- * eventually forget.
+ * **No program-wide scans.** Every market and every position lives at an
+ * address derived from its symbol (and owner), so the addresses are computed
+ * here and fetched in one `getMultipleAccounts` call — which every RPC
+ * answers, unlike the `getProgramAccounts` scans public endpoints refuse.
  */
 
 /** The batch view the rates table and the pair pages read. */
@@ -22,7 +36,7 @@ export interface ChainMarket {
   symbol: string;
   listed: boolean;
   paused: boolean;
-  /** False when the oracle cannot price it right now. */
+  /** False when the mark is missing or stale right now. */
   priced: boolean;
   mark: number;
   /** Fractional per 8h. Positive means longs pay. */
@@ -55,230 +69,222 @@ export interface ChainPosition {
 
 /** The pool that takes the other side of every trade. */
 export interface Pool {
-  /** Settlement tokens backing the book. */
   assets: number;
-  /** The part already promised to open positions' payout caps. */
   reserved: number;
-  /** What a provider could withdraw right now. */
   free: number;
-  /** How much of the pool is working, 0 to 1. */
   utilisation: number;
-  /** The connected account's shares, and what they are worth. */
   shares: bigint;
   value: number;
-  /** That account's share of the whole, 0 to 1. */
   ownership: number;
 }
 
 export interface Account {
   /** Free balance inside the venue, withdrawable. */
   free: number;
-  /** Settlement tokens still in the wallet. */
+  /** USDC still in the wallet. */
   wallet: number;
-  /** How much the engine may pull, in token units. */
+  /**
+   * Kept for the screens written against the EVM venue, where the token had
+   * to be approved first. Solana has no approvals: the owner signs each
+   * transfer, so this is always the maximum.
+   */
   allowance: bigint;
-}
-
-interface MarketRow {
-  id: string;
-  maxLeverage: bigint;
-  longOpenInterest: bigint;
-  shortOpenInterest: bigint;
-  markPrice: bigint;
-  fundingRate: bigint;
-  listed: boolean;
-  paused: boolean;
-  priced: boolean;
-  referencePrice: bigint;
-  referenceAt: bigint;
-}
-
-interface PositionRow {
-  position: {
-    margin: bigint;
-    notional: bigint;
-    payoutCap: bigint;
-    entryPrice: bigint;
-    entryFunding: bigint;
-    openedAt: bigint;
-    isLong: boolean;
-    open: boolean;
-  };
-  markPrice: bigint;
-  pnl: bigint;
-  accruedFunding: bigint;
-  equity: bigint;
-  maintenance: bigint;
-  liquidationPrice: bigint;
-  liquidatable: boolean;
-}
-
-interface ReadableEngine {
-  marketsView(ids: string[]): Promise<MarketRow[]>;
-  positionsView(account: string, ids: string[]): Promise<PositionRow[]>;
-  balanceOf(account: string): Promise<bigint>;
-  poolAssets(): Promise<bigint>;
-  poolReserved(): Promise<bigint>;
-  poolFree(): Promise<bigint>;
-  poolShares(): Promise<bigint>;
-  sharesOf(account: string): Promise<bigint>;
-}
-
-interface ReadableToken {
-  decimals(): Promise<bigint>;
-  symbol(): Promise<string>;
-  balanceOf(account: string): Promise<bigint>;
-  allowance(owner: string, spender: string): Promise<bigint>;
 }
 
 /** Thrown when something asks the chain a question on an unconfigured venue. */
 export class VenueNotLive extends Error {
   constructor() {
-    super("the venue has no address configured");
+    super("the venue has no program configured");
     this.name = "VenueNotLive";
   }
 }
 
-let provider: JsonRpcProvider | null = null;
-
-export const reader = (): JsonRpcProvider => {
-  if (!venue.live || !venue.rpcUrl) throw new VenueNotLive();
-  provider ??= new JsonRpcProvider(venue.rpcUrl, venue.chainId, {
-    staticNetwork: true,
-  });
-  return provider;
-};
-
-export const readEngine = (): ReadableEngine =>
-  new Contract(
-    venue.engine as string,
-    PERP_ENGINE_ABI as unknown as string[],
-    reader(),
-  ) as unknown as ReadableEngine;
-
-export const readToken = (): ReadableToken =>
-  new Contract(
-    venue.settlement as string,
-    SETTLEMENT_ABI as unknown as string[],
-    reader(),
-  ) as unknown as ReadableToken;
+let connection: Connection | null = null;
 
 /**
- * The settlement token's decimals and symbol, read once.
- *
- * Assuming six would be right for most dollar stablecoins and catastrophic for
- * the one that is eighteen, so it is asked rather than assumed — and cached,
- * because it cannot change.
+ * The server's connection. `SOLANA_RPC_URL` (server only) wins, so a keyed
+ * provider URL never has to be public; the public one is the fallback.
  */
+export const reader = (): Connection => {
+  if (!venue.live || !venue.rpcUrl) throw new VenueNotLive();
+  const url = process.env.SOLANA_RPC_URL?.trim() || venue.rpcUrl;
+  connection ??= new Connection(url, "confirmed");
+  return connection;
+};
+
+const programId = (): PublicKey => new PublicKey(venue.engine as string);
+const mint = (): PublicKey => new PublicKey(venue.settlement as string);
+const at = () => pdas(programId());
+
+const now = (): number => Math.floor(Date.now() / 1000);
+
+/** USDC's decimals, read off the mint once; it cannot change. */
 let meta: Promise<{ decimals: number; symbol: string }> | null = null;
 
-export const settlementMeta = (): Promise<{
-  decimals: number;
-  symbol: string;
-}> => {
+export const settlementMeta = (): Promise<{ decimals: number; symbol: string }> => {
   meta ??= (async () => {
-    const token = readToken();
-    const [decimals, symbol] = await Promise.all([
-      token.decimals(),
-      token.symbol(),
-    ]);
-    return { decimals: Number(decimals), symbol };
-  })();
+    const info = await reader().getAccountInfo(mint());
+    // SPL mint layout: decimals is the byte at offset 44.
+    const decimals = info?.data[44] ?? 6;
+    return { decimals, symbol: "USDC" };
+  })().catch((error: unknown) => {
+    // A failed read must not be cached: the next request asks again.
+    meta = null;
+    throw error;
+  });
   return meta;
 };
 
-/** Every market asked for, priced, in one call. */
-export const readChainMarkets = async (
-  symbols: string[],
-): Promise<ChainMarket[]> => {
-  const { decimals } = await settlementMeta();
-  const rows = await readEngine().marketsView(symbols.map(marketId));
+/** Config, marks and the listed markets, in two round trips. */
+const loadVenue = async (symbols: string[]) => {
+  const addresses = at();
+  const marketKeys = symbols.map((symbol) => addresses.market(symbol));
 
-  return rows.map((row, index) => ({
-    symbol: symbols[index] as string,
-    listed: row.listed,
-    paused: row.paused,
-    priced: row.priced,
-    mark: fromPrice(row.markPrice),
-    fundingRate: fromPrice(row.fundingRate),
-    longOpenInterest: fromAmount(row.longOpenInterest, decimals),
-    shortOpenInterest: fromAmount(row.shortOpenInterest, decimals),
-    maxLeverage: Number(row.maxLeverage),
-    referencePrice: fromPrice(row.referencePrice),
-    referenceAt: Number(row.referenceAt),
-  }));
-};
-
-/** Only the markets this account actually has something open on. */
-export const readChainPositions = async (
-  account: string,
-  symbols: string[],
-): Promise<ChainPosition[]> => {
-  const { decimals } = await settlementMeta();
-  const rows = await readEngine().positionsView(account, symbols.map(marketId));
-
-  return rows
-    .map((row, index) => ({ row, symbol: symbols[index] as string }))
-    .filter(({ row }) => row.position.open)
-    .map(({ row, symbol }) => ({
-      symbol,
-      isLong: row.position.isLong,
-      margin: fromAmount(row.position.margin, decimals),
-      notional: fromAmount(row.position.notional, decimals),
-      payoutCap: fromAmount(row.position.payoutCap, decimals),
-      entryPrice: fromPrice(row.position.entryPrice),
-      mark: fromPrice(row.markPrice),
-      pnl: fromAmount(row.pnl, decimals),
-      accruedFunding: fromAmount(row.accruedFunding, decimals),
-      equity: fromAmount(row.equity, decimals),
-      maintenance: fromAmount(row.maintenance, decimals),
-      liquidationPrice: fromPrice(row.liquidationPrice),
-      liquidatable: row.liquidatable,
-      openedAt: Number(row.position.openedAt),
-    }));
-};
-
-export const readAccount = async (address: string): Promise<Account> => {
-  const { decimals } = await settlementMeta();
-  const token = readToken();
-
-  const [free, wallet, allowance] = await Promise.all([
-    readEngine().balanceOf(address),
-    token.balanceOf(address),
-    token.allowance(address, venue.engine as string),
+  const [head, markets] = await Promise.all([
+    reader().getMultipleAccountsInfo([addresses.config, addresses.marks]),
+    reader().getMultipleAccountsInfo(marketKeys),
   ]);
 
+  const [configInfo, marksInfo] = head;
+  if (!configInfo || !marksInfo) throw new VenueNotLive();
+
   return {
-    free: fromAmount(free, decimals),
-    wallet: fromAmount(wallet, decimals),
-    allowance,
+    config: decodeConfig(configInfo.data),
+    marks: decodeMarks(marksInfo.data),
+    markets: markets.map((info, index) => ({
+      symbol: symbols[index] as string,
+      address: marketKeys[index] as PublicKey,
+      account: info ? decodeMarket(info.data) : null,
+    })),
   };
 };
 
-/**
- * The pool, and one account's part of it.
- *
- * `address` is optional because the pool's own numbers are public and worth
- * showing to somebody who has not connected anything yet — the size of the
- * book they would be backing is the first thing a provider wants to know.
- */
-export const readPool = async (address?: string): Promise<Pool> => {
-  const { decimals } = await settlementMeta();
-  const engine = readEngine();
+const freshMark = (slot: MarkSlot | undefined, maxAge: number): bigint | null =>
+  slot && slot.updatedAt !== 0 && now() <= slot.updatedAt + maxAge ? slot.price : null;
 
-  const [assetsRaw, reservedRaw, totalShares, mine] = await Promise.all([
-    engine.poolAssets(),
-    engine.poolReserved(),
-    engine.poolShares(),
-    address ? engine.sharesOf(address) : Promise.resolve(0n),
+/** Every market asked for, priced. */
+export const readChainMarkets = async (symbols: string[]): Promise<ChainMarket[]> => {
+  const { decimals } = await settlementMeta();
+  const { config, marks, markets } = await loadVenue(symbols);
+
+  return markets.map(({ symbol, account }) => {
+    if (!account) {
+      return {
+        symbol,
+        listed: false,
+        paused: false,
+        priced: false,
+        mark: 0,
+        fundingRate: 0,
+        longOpenInterest: 0,
+        shortOpenInterest: 0,
+        maxLeverage: 0,
+        referencePrice: 0,
+        referenceAt: 0,
+      };
+    }
+
+    const mark = freshMark(marks[account.index], config.maxAge);
+
+    return {
+      symbol,
+      listed: true,
+      paused: account.paused,
+      priced: mark !== null,
+      mark: mark === null ? 0 : fromPrice(mark),
+      fundingRate: fromPrice(fundingRate(account.longOpenInterest, account.shortOpenInterest, account.skewScale)),
+      longOpenInterest: fromAmount(account.longOpenInterest, decimals),
+      shortOpenInterest: fromAmount(account.shortOpenInterest, decimals),
+      maxLeverage: account.maxLeverage,
+      referencePrice: fromPrice(account.referencePrice),
+      referenceAt: account.referenceAt,
+    };
+  });
+};
+
+/** Only the markets this account actually has something open on. */
+export const readChainPositions = async (address: string, symbols: string[]): Promise<ChainPosition[]> => {
+  const { decimals } = await settlementMeta();
+  const owner = new PublicKey(address);
+  const { config, marks, markets } = await loadVenue(symbols);
+
+  const listed = markets.filter(
+    (row): row is typeof row & { account: MarketAccount } => row.account !== null,
+  );
+  const positionKeys = listed.map(({ address: market }) => at().position(market, owner));
+  const infos = await reader().getMultipleAccountsInfo(positionKeys);
+
+  const out: ChainPosition[] = [];
+
+  infos.forEach((info: AccountInfo<Buffer> | null, index) => {
+    const row = listed[index];
+    if (!info || !row) return;
+
+    const position = decodePosition(info.data);
+    const slot = marks[row.account.index];
+    // An unpriced market still has a true position; it is shown at its entry
+    // with no live result rather than hidden.
+    const mark = freshMark(slot, config.maxAge) ?? position.entryPrice;
+    const view = positionView(position, row.account, mark, now());
+
+    out.push({
+      symbol: row.symbol,
+      isLong: position.isLong,
+      margin: fromAmount(position.margin, decimals),
+      notional: fromAmount(position.notional, decimals),
+      payoutCap: fromAmount(position.payoutCap, decimals),
+      entryPrice: fromPrice(position.entryPrice),
+      mark: fromPrice(mark),
+      pnl: fromAmount(view.pnl, decimals),
+      accruedFunding: fromAmount(view.funding, decimals),
+      equity: fromAmount(view.equity, decimals),
+      maintenance: fromAmount(view.maintenance, decimals),
+      liquidationPrice: fromPrice(view.liquidationPrice),
+      liquidatable: view.liquidatable,
+      openedAt: position.openedAt,
+    });
+  });
+
+  return out;
+};
+
+/** SPL token account layout: the amount is a u64 at offset 64. */
+const tokenAmount = (info: AccountInfo<Buffer> | null): bigint =>
+  info && info.data.length >= 72 ? info.data.readBigUInt64LE(64) : 0n;
+
+export const readAccount = async (address: string): Promise<Account> => {
+  const { decimals } = await settlementMeta();
+  const owner = new PublicKey(address);
+
+  const [traderInfo, walletInfo] = await reader().getMultipleAccountsInfo([
+    at().trader(owner),
+    associatedTokenAddress(mint(), owner),
   ]);
 
-  const assets = fromAmount(assetsRaw, decimals);
-  const reserved = fromAmount(reservedRaw, decimals);
+  const free = traderInfo ? decodeTrader(traderInfo.data).balance : 0n;
 
-  // Shares are 1e18 whatever the token is, so the ratio is taken on the raw
-  // integers and only the result becomes a number.
-  const ownership = totalShares === 0n ? 0 : Number((mine * 10n ** 18n) / totalShares) / 1e18;
+  return {
+    free: fromAmount(free, decimals),
+    wallet: fromAmount(tokenAmount(walletInfo ?? null), decimals),
+    allowance: (1n << 64n) - 1n,
+  };
+};
+
+/** The pool, and one account's part of it. */
+export const readPool = async (address?: string): Promise<Pool> => {
+  const { decimals } = await settlementMeta();
+  const keys = [at().config];
+  if (address) keys.push(at().trader(new PublicKey(address)));
+
+  const [configInfo, traderInfo] = await reader().getMultipleAccountsInfo(keys);
+  if (!configInfo) throw new VenueNotLive();
+
+  const config = decodeConfig(configInfo.data);
+  const mine = traderInfo ? decodeTrader(traderInfo.data).shares : 0n;
+
+  const assets = fromAmount(config.poolAssets, decimals);
+  const reserved = fromAmount(config.poolReserved, decimals);
+  const ownership = config.poolShares === 0n ? 0 : Number((mine * 10n ** 18n) / config.poolShares) / 1e18;
 
   return {
     assets,
@@ -293,169 +299,137 @@ export const readPool = async (address?: string): Promise<Pool> => {
 
 // ------------------------------------------------------------------ activity
 
-/** One thing this account did, as the chain recorded it. */
+/** One thing this account did, as the program recorded it. */
 export interface Activity {
   kind: "closed" | "reduced" | "liquidated" | "deposit" | "withdraw";
-  /** The pair, for the three position kinds. */
   symbol?: string;
-  /** Settlement tokens that moved: a payout, a transfer, a liquidation reward. */
   amount: number;
   pnl?: number;
   fee?: number;
   funding?: number;
   price?: number;
+  /** The slot, on Solana. */
   block: number;
   at?: number;
+  /** The transaction signature. */
   hash: string;
 }
-
-interface LogRow {
-  args: Record<string, unknown> & { [index: number]: unknown };
-  blockNumber: number;
-  transactionHash: string;
-}
-
-interface LoggingEngine {
-  queryFilter(filter: unknown, from: number, to: number): Promise<LogRow[]>;
-  filters: {
-    PositionClosed(account?: string): unknown;
-    PositionReduced(account?: string): unknown;
-    PositionLiquidated(account?: string): unknown;
-    Deposited(account?: string): unknown;
-    Withdrawn(account?: string): unknown;
-  };
-}
-
-/** The engine names markets by hash, so the way back is a table we already have. */
-const symbolByHash = (symbols: string[]): Map<string, string> =>
-  new Map(symbols.map((symbol) => [marketId(symbol), symbol]));
 
 /**
  * What one account has done, newest first.
  *
- * Read from the contract's own events rather than from a database, because the
- * events are the record and anything else would be a second copy of it that
- * can disagree. A node that refuses the block range gives back an empty list
- * rather than an error: an empty history tab is a much smaller lie than a
- * broken screen.
+ * Read from the program's own events in the account's recent transactions,
+ * rather than from a database: the events are the record. The wallet is the
+ * address queried because it appears in every one of its own transactions and
+ * in a liquidation of its position (it receives the account's rent). An RPC
+ * that refuses gives an empty list, not an error.
  */
-export const readActivity = async (
-  address: string,
-  symbols: string[],
-  limit = 40,
-): Promise<Activity[]> => {
-  const { decimals } = await settlementMeta();
-  const engine = readEngine() as unknown as LoggingEngine;
-  const names = symbolByHash(symbols);
+/** Per-address cache: the portfolio polls, the history changes per trade. */
+const activityCache = new Map<string, { at: number; rows: Activity[] }>();
+const ACTIVITY_TTL_MS = 15_000;
 
-  let head: number;
+export const readActivity = async (address: string, symbols: string[], limit = 40): Promise<Activity[]> => {
+  const cached = activityCache.get(address);
+  if (cached && Date.now() - cached.at < ACTIVITY_TTL_MS) return cached.rows;
+
+  const rows = await loadActivity(address, symbols, limit);
+  activityCache.set(address, { at: Date.now(), rows });
+  return rows;
+};
+
+const loadActivity = async (address: string, symbols: string[], limit: number): Promise<Activity[]> => {
+  const { decimals } = await settlementMeta();
+  const owner = new PublicKey(address);
+  const program = programId();
+
+  const bySymbol = new Map(symbols.map((symbol) => [at().market(symbol).toBase58(), symbol]));
+  const amount = (value: bigint) => fromAmount(value, decimals);
+
   try {
-    head = await reader().getBlockNumber();
+    // The trader account is touched by every deposit, withdrawal and trade of
+    // this owner and by nothing else, so its history is exactly the venue's.
+    // Liquidations do not touch it; they touch the owner wallet (which gets
+    // the position's rent back), so a short page of that is added.
+    const [mine, wallet] = await Promise.all([
+      reader().getSignaturesForAddress(at().trader(owner), { limit }),
+      reader().getSignaturesForAddress(owner, { limit: 25 }),
+    ]);
+    const seen = new Set<string>();
+    const ok = [...mine, ...wallet].filter((row) => {
+      if (row.err !== null || seen.has(row.signature)) return false;
+      seen.add(row.signature);
+      return true;
+    });
+    if (ok.length === 0) return [];
+
+    // One at a time in small groups rather than one large batch: some keyed
+    // RPC plans refuse JSON-RPC batches outright.
+    const transactions: Awaited<ReturnType<Connection["getTransaction"]>>[] = [];
+    for (let i = 0; i < ok.length; i += 8) {
+      const group = ok.slice(i, i + 8);
+      transactions.push(
+        ...(await Promise.all(
+          group.map((row) =>
+            reader()
+              .getTransaction(row.signature, { maxSupportedTransactionVersion: 0, commitment: "confirmed" })
+              .catch(() => null),
+          ),
+        )),
+      );
+    }
+
+    const rows: Activity[] = [];
+
+    transactions.forEach((tx, index) => {
+      const logs = tx?.meta?.logMessages;
+      const signature = ok[index]?.signature;
+      if (!tx || !logs || !signature) return;
+      if (!logs.some((line) => line.includes(program.toBase58()))) return;
+
+      const base = { block: tx.slot, hash: signature, ...(tx.blockTime ? { at: tx.blockTime } : {}) };
+
+      for (const event of decodeEvents(logs, program)) {
+        if (event.name === "Deposited" && event.owner.equals(owner)) {
+          rows.push({ kind: "deposit", amount: amount(event.amount), ...base });
+        } else if (event.name === "Withdrawn" && event.owner.equals(owner)) {
+          rows.push({ kind: "withdraw", amount: amount(event.amount), ...base });
+        } else if (event.name === "PositionClosed" && event.owner.equals(owner)) {
+          rows.push({
+            kind: "closed",
+            symbol: bySymbol.get(event.market.toBase58()),
+            price: fromPrice(event.exitPrice),
+            amount: amount(event.payout),
+            pnl: amount(event.pnl),
+            funding: amount(event.funding),
+            fee: amount(event.fee),
+            ...base,
+          });
+        } else if (event.name === "PositionReduced" && event.owner.equals(owner)) {
+          rows.push({
+            kind: "reduced",
+            symbol: bySymbol.get(event.market.toBase58()),
+            price: fromPrice(event.exitPrice),
+            amount: amount(event.payout),
+            pnl: amount(event.pnl),
+            funding: amount(event.funding),
+            fee: amount(event.fee),
+            ...base,
+          });
+        } else if (event.name === "PositionLiquidated" && event.owner.equals(owner)) {
+          rows.push({
+            kind: "liquidated",
+            symbol: bySymbol.get(event.market.toBase58()),
+            price: fromPrice(event.exitPrice),
+            amount: 0,
+            ...base,
+          });
+        }
+      }
+    });
+
+    rows.sort((a, b) => b.block - a.block);
+    return rows.slice(0, limit);
   } catch {
     return [];
   }
-
-  const from = venue.deployBlock;
-
-  const pull = async (filter: unknown): Promise<LogRow[]> => {
-    try {
-      return await engine.queryFilter(filter, from, head);
-    } catch {
-      return [];
-    }
-  };
-
-  const [closed, reduced, liquidated, deposits, withdrawals] = await Promise.all([
-    pull(engine.filters.PositionClosed(address)),
-    pull(engine.filters.PositionReduced(address)),
-    pull(engine.filters.PositionLiquidated(address)),
-    pull(engine.filters.Deposited(address)),
-    pull(engine.filters.Withdrawn(address)),
-  ]);
-
-  const amount = (value: unknown): number =>
-    fromAmount(BigInt(value as string | bigint), decimals);
-
-  const rows: Activity[] = [];
-
-  for (const log of closed) {
-    rows.push({
-      kind: "closed",
-      symbol: names.get(String(log.args[1])),
-      price: fromPrice(BigInt(log.args.exitPrice as bigint)),
-      amount: amount(log.args.payout),
-      pnl: amount(log.args.pnl),
-      funding: amount(log.args.funding),
-      fee: amount(log.args.fee),
-      block: log.blockNumber,
-      hash: log.transactionHash,
-    });
-  }
-
-  for (const log of reduced) {
-    rows.push({
-      kind: "reduced",
-      symbol: names.get(String(log.args[1])),
-      price: fromPrice(BigInt(log.args.exitPrice as bigint)),
-      amount: amount(log.args.payout),
-      pnl: amount(log.args.pnl),
-      funding: amount(log.args.funding),
-      fee: amount(log.args.fee),
-      block: log.blockNumber,
-      hash: log.transactionHash,
-    });
-  }
-
-  for (const log of liquidated) {
-    rows.push({
-      kind: "liquidated",
-      symbol: names.get(String(log.args[1])),
-      price: fromPrice(BigInt(log.args.exitPrice as bigint)),
-      amount: 0,
-      block: log.blockNumber,
-      hash: log.transactionHash,
-    });
-  }
-
-  for (const log of deposits) {
-    rows.push({
-      kind: "deposit",
-      amount: amount(log.args.amount),
-      block: log.blockNumber,
-      hash: log.transactionHash,
-    });
-  }
-
-  for (const log of withdrawals) {
-    rows.push({
-      kind: "withdraw",
-      amount: amount(log.args.amount),
-      block: log.blockNumber,
-      hash: log.transactionHash,
-    });
-  }
-
-  rows.sort((a, b) => b.block - a.block);
-  const recent = rows.slice(0, limit);
-
-  // Timestamps, for the blocks that survived the cut only — a block lookup per
-  // event would be dozens of round trips to date a list nobody scrolls.
-  const blocks = [...new Set(recent.map((row) => row.block))];
-  const times = new Map<number, number>();
-
-  await Promise.all(
-    blocks.map(async (block) => {
-      try {
-        const found = await reader().getBlock(block);
-        if (found) times.set(block, Number(found.timestamp));
-      } catch {
-        // A pruned or unavailable block just goes undated.
-      }
-    }),
-  );
-
-  return recent.map((row) => {
-    const at = times.get(row.block);
-    return at === undefined ? row : { ...row, at };
-  });
 };
