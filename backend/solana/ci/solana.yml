@@ -7,13 +7,7 @@ name: solana program
 on:
   push:
     branches: [main, solana]
-    paths:
-      - "backend/solana/**"
-      - "backend/shared/**"
-      - ".github/workflows/solana.yml"
   pull_request:
-    paths:
-      - "backend/solana/**"
   workflow_dispatch:
 
 concurrency:
@@ -83,3 +77,38 @@ jobs:
 
       - name: Test
         run: anchor test --skip-build --validator legacy
+
+  # The site against the Solana chain layer: lint, types, and a production
+  # build in the preview state (no program configured), as a fresh clone gets.
+  site:
+    name: site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npx --yes yarn@1.22.22 install
+      - name: Lint
+        run: npx yarn@1.22.22 lint
+      - name: Types
+        run: npx tsc --noEmit
+      - name: Build
+        run: npx yarn@1.22.22 build
+
+  keeper:
+    name: keeper (solana)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/keeper-solana
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
