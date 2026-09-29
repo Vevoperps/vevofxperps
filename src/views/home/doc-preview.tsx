@@ -10,9 +10,9 @@
  * unfinished.
  *
  * So the page is laid out the way `/docs` lays itself out — same rail, same
- * header, same chapter opening, same type sizes and rules — inside a fixed
- * 80 × 50rem "screen", and the whole screen is then scaled down to the card's
- * width with one `transform`. What the card shows is what the reader gets on
+ * header, same chapter opening, same type sizes and rules — on a fixed
+ * 52 × 73.5rem sheet in A4 proportion, and the whole sheet is then scaled down
+ * to the card's width with one `transform`. What the card shows is what the reader gets on
  * click, only smaller.
  *
  * The scale is measured, not guessed: the site's root font size adapts to the
@@ -93,7 +93,6 @@ const PreviewBlock = ({ block }: { block: Block }) => {
 
 /** The real page's first screen, at the real page's sizes. */
 const Screen = ({ book, shelf }: { book: Book; shelf: Shelf }) => {
-  const chapter = book.chapters[0];
 
   return (
     <span className="flex h-full w-full bg-surface-paper-2 text-foreground">
@@ -169,22 +168,33 @@ const Screen = ({ book, shelf }: { book: Book; shelf: Shelf }) => {
           </span>
         </span>
 
-        <span className="flex flex-col gap-4 pt-12">
-          <span className="flex items-center gap-3">
-            <span className="label bg-accent px-2 py-1.5 pt-2 text-ink-on-ink">01</span>
-            <Label>{chapter.eyebrow}</Label>
-          </span>
-          <span className="block max-w-[24ch] text-[2.25rem] font-medium leading-[1.15] tracking-tight">
-            {chapter.title}
-          </span>
-          <span className="block h-[2px] w-16 bg-accent" />
-        </span>
+        {/* Chapters in order until the sheet runs out, exactly as the page
+            reads — the sheet's bottom edge is where the page break falls. */}
+        {book.chapters.map((entry, index) => (
+          <span
+            key={entry.id}
+            className={`block pt-12 ${index > 0 ? "mt-14 border-t border-rule-paper" : ""}`}
+          >
+            <span className="flex flex-col gap-4">
+              <span className="flex items-center gap-3">
+                <span className="label bg-accent px-2 py-1.5 pt-2 text-ink-on-ink">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <Label>{entry.eyebrow}</Label>
+              </span>
+              <span className="block max-w-[24ch] text-[2.25rem] font-medium leading-[1.15] tracking-tight">
+                {entry.title}
+              </span>
+              <span className="block h-[2px] w-16 bg-accent" />
+            </span>
 
-        <span className="mt-7 flex max-w-[64ch] flex-col gap-5">
-          {chapter.blocks.slice(0, 4).map((block, index) => (
-            <PreviewBlock key={index} block={block} />
-          ))}
-        </span>
+            <span className="mt-7 flex max-w-[64ch] flex-col gap-5">
+              {entry.blocks.map((block, position) => (
+                <PreviewBlock key={position} block={block} />
+              ))}
+            </span>
+          </span>
+        ))}
       </span>
     </span>
   );
@@ -216,13 +226,13 @@ export const DocPreview = ({ book, shelf }: { book: Book; shelf: Shelf }) => {
     <span
       ref={box}
       aria-hidden
-      // 16:10, the screen's own proportion, so the whole page fits the frame
-      // with nothing cropped at the bottom.
-      className="relative block aspect-[16/10] w-full overflow-hidden"
+      // A4 portrait (1 : √2): the book reads as a sheet of documentation,
+      // whole, with its edges inside the card.
+      className="relative block aspect-[1/1.4142] w-full overflow-hidden"
     >
       <span
         ref={screen}
-        className="absolute left-0 top-0 block h-[50rem] w-[80rem] origin-top-left"
+        className="absolute left-0 top-0 block h-[73.54rem] w-[52rem] origin-top-left"
         style={{
           transform: `scale(${scale ?? 0.25})`,
           opacity: scale === null ? 0 : 1,

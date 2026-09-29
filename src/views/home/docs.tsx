@@ -13,13 +13,14 @@ import { SECTION_COUNT, sectionIndex, docs } from "@/data/content";
 import type { Book } from "@/data/books";
 
 /**
- * Only what the thumbnail draws: the rail and the first chapter. The preview
+ * Only what the thumbnail draws: the rail and the first two chapters, which
+ * is more than an A4 sheet holds. The preview
  * is a client component, so whatever is passed to it is serialised into the
  * page; the full books would add both handbooks' text to every home load.
  */
 const preview = (book: Book): Book => ({
   ...book,
-  chapters: book.chapters.slice(0, 1),
+  chapters: book.chapters.slice(0, 2),
 });
 
 /** Both books' names, for the switcher at the top of each thumbnail's rail. */

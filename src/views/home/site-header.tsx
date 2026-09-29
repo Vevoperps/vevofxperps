@@ -116,14 +116,19 @@ export const SiteHeader = () => {
         aria-label="Main navigation"
         className="pointer-events-auto flex bg-surface-paper"
       >
-        {/* The logo, first in the row: back to the hero from anywhere. */}
+        {/*
+          The logo, first in the row: back to the hero from anywhere. It is the
+          whole cell — no frame, no padding — and exactly as tall as its
+          neighbours: a `.label` line (0.6875rem) plus their `py-3.5` and the
+          two 1px borders, so the square and the row share one edge.
+        */}
         <a
           href="/"
           onClick={(event) => jump(event, TOP)}
           aria-label={`${brand.name}, back to top`}
-          className="group flex items-center border border-rule-paper px-2.5 transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-paper-2"
+          className="block size-[calc(2.4375rem+2px)] shrink-0 transition-[filter] duration-[var(--duration-fast)] ease-entrance hover:brightness-110"
         >
-          <LogoMark className="size-[1.375rem] transition-transform duration-[var(--duration-fast)] ease-entrance group-hover:scale-[1.06]" />
+          <LogoMark className="block size-full" />
         </a>
 
         {nav.map((item) => {
