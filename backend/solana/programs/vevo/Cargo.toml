@@ -22,6 +22,9 @@ anchor-debug = []
 [dependencies]
 anchor-lang = { version = "1.2.0", features = ["init-if-needed"] }
 anchor-spl = "1.2.0"
+# `#[account(zero_copy)]` expands to `::bytemuck` paths, so the crate has to be
+# a direct dependency. `min_const_generics` lets the 80-slot marks array be Pod.
+bytemuck = { version = "1.25", features = ["derive", "min_const_generics"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

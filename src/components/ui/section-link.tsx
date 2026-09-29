@@ -18,6 +18,7 @@
  * lands on the home page, just at the top.
  */
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 
@@ -72,8 +73,8 @@ export const SectionLink = ({
   };
 
   return (
-    <a href="/" onClick={onClick} aria-label={label} className={className}>
+    <Link href="/" scroll={false} onClick={onClick} aria-label={label} className={className}>
       {children}
-    </a>
+    </Link>
   );
 };

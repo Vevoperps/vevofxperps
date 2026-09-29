@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { HoverType } from "@/components/ui/hover-type";
@@ -122,19 +123,19 @@ export const SiteHeader = () => {
           neighbours: a `.label` line (0.6875rem) plus their `py-3.5` and the
           two 1px borders, so the square and the row share one edge.
         */}
-        <a
+        <Link
           href="/"
           onClick={(event) => jump(event, TOP)}
           aria-label={`${brand.name}, back to top`}
           className="block size-[calc(2.4375rem+2px)] shrink-0 transition-[filter] duration-[var(--duration-fast)] ease-entrance hover:brightness-110"
         >
           <LogoMark className="block size-full" />
-        </a>
+        </Link>
 
         {nav.map((item) => {
           const on = item.id === active;
           return (
-            <a
+            <Link
               key={item.id}
               href="/"
               onClick={(event) => jump(event, item.id)}
@@ -159,7 +160,7 @@ export const SiteHeader = () => {
               <span aria-hidden className={`ml-1 ${on ? "opacity-60" : "invisible"}`}>
                 &gt;
               </span>
-            </a>
+            </Link>
           );
         })}
       </nav>
