@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef } from "react";
 
 import { Action } from "@/components/ui/action";
@@ -10,6 +9,7 @@ import { Rule } from "@/components/ui/rule";
 import { TypeIn } from "@/components/ui/type-in";
 import { subscribeToTicker } from "@/lib/animation/ticker";
 import { brand } from "@/lib/brand";
+import { Receipt } from "@/views/app/receipt";
 import { SECTION_COUNT, sectionIndex, ticket } from "@/data/content";
 
 /**
@@ -29,6 +29,10 @@ import { SECTION_COUNT, sectionIndex, ticket } from "@/data/content";
  * Three things ride the same clock so they cannot drift apart: the paper's
  * travel, the shadow it casts as it leaves the housing, and the panel's own
  * readout. The lamp blinks on the step, not on a timer.
+ *
+ * **The paper is the app's own receipt.** The slip that feeds out is the
+ * same component a closed position prints in the app, filled from a sample
+ * close, so the landing can never show a ticket the product does not print.
  *
  * **Nothing here goes through React.** The frame handler writes one custom
  * property and two strings onto nodes it kept refs to. Only `transform` moves,
@@ -198,14 +202,13 @@ export const Ticket = () => {
               </Reveal>
             </div>
 
-            {/* The machine. Its width is taken from the screen's height rather
-              than the column's width, because what has to fit is the paper's
-              drop, not the paper's measure. */}
+            {/* The machine. A fixed width: the receipt is set in mono at a
+              fixed size, so its measure, not the screen, decides the paper. */}
             <Reveal
               y={28}
               delay={120}
               config={{ tension: 120, friction: 28 }}
-              className="mx-auto flex w-[min(15rem,32vh)] flex-col items-center lg:w-[min(21rem,30vh)]"
+              className="mx-auto flex w-[17rem] flex-col items-center sm:w-[18rem] lg:w-[19rem]"
             >
               <div className="relative w-full">
                 {/* The housing. It hangs a little over the paper's own frame so
@@ -233,13 +236,12 @@ export const Ticket = () => {
                 <div
                   ref={windowRef}
                   className="relative z-10 w-full overflow-hidden"
-                  style={{
-                    aspectRatio: `${ticket.slip.width} / ${ticket.slip.height}`,
-                  }}
                 >
+                  {/* In flow, so the slot is exactly as tall as the receipt;
+                    the translate is a percentage of the paper's own height. */}
                   <div
                     ref={paperRef}
-                    className="absolute inset-0 will-change-transform"
+                    className="relative will-change-transform"
                     style={{
                       // Written by the frame handler; both the travel and the
                       // shadow read it, so they cannot come apart.
@@ -249,15 +251,7 @@ export const Ticket = () => {
                       filter: `drop-shadow(0 calc(var(--fed) * ${SHADOW.y}px) calc(var(--fed) * ${SHADOW.blur}px) var(--shadow-paper))`,
                     }}
                   >
-                    <Image
-                      src={ticket.slip.src}
-                      alt={ticket.slip.alt}
-                      width={ticket.slip.width}
-                      height={ticket.slip.height}
-                      sizes="(min-width: 1024px) 21rem, 15rem"
-                      quality={95}
-                      className="block h-full w-full"
-                    />
+                    <Receipt event={ticket.sample} />
                   </div>
                 </div>
               </div>

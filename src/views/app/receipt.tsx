@@ -9,9 +9,9 @@ import { venue } from "@/lib/chain/venue";
 /**
  * The paper slip a closed position prints.
  *
- * The landing shows this as a photograph; here it is real markup, because the
- * numbers on it are a particular trade's and have to come off the chain rather
- * than out of an image editor.
+ * Real markup rather than a picture, because the numbers on it are a
+ * particular trade's. The landing feeds this same component out of its
+ * printer, filled from a sample close (`ticket.sample` in data/content.ts).
  *
  * **Every line is from the close record, or derived from it.** The venue
  * emits the exit price, the payout, the result, the fee and the funding. The

@@ -11,6 +11,7 @@
 
 import { brand } from "@/lib/brand";
 import { documentation, tradingGuide } from "@/data/books";
+import type { Activity } from "@/lib/chain/read";
 
 export interface SectionHead {
   /** Slug — also the anchor id and the nav target. */
@@ -199,19 +200,26 @@ export const ticket = {
   lede: "the ticket is the position, not a summary of it.",
   body: `pair, side, leverage, the price you got and the price it liquidates at, on one slip you can read in three seconds. it prints the moment the order fills, and every line on it settles in ${brand.chain.settlement.toLowerCase()}.`,
   /**
-   * The slip itself.
+   * The slip itself: the same receipt the app prints when a position closes,
+   * rendered from a sample close rather than a photograph of one. A 25x long
+   * on USDJPY, 1,000 USDC margin, closed about 0.6% higher.
    *
-   * A picture rather than markup: the paper is a printed object, with grain,
-   * uneven ink and a torn edge, and none of that survives being rebuilt in
-   * divs. Its natural size is here so the layout reserves the right box before
-   * the file has loaded.
+   * `at` is fixed so the server and the browser print the same minute, and
+   * `hash` is a ledger reference (not a Solana signature), so the slip shows
+   * it as text instead of linking to an explorer page that does not exist.
    */
-  slip: {
-    src: "/assets/ticket.webp",
-    width: 798,
-    height: 1758,
-    alt: "A printed ticket: USDJPY, long at 25x, 1,000 USDC margin, filled at 147.382, liquidation at 141.064.",
-  },
+  sample: {
+    kind: "closed",
+    symbol: "USDJPY",
+    price: 157.46,
+    pnl: 150.15,
+    fee: 12.58,
+    funding: 0.84,
+    amount: 1136.73,
+    block: 0,
+    at: 1790799420,
+    hash: "7f3a9c21e84b0d5611ab",
+  } satisfies Activity,
   /** Printed under the machine, in mono, while the paper feeds. */
   status: {
     idle: "Standing by",
