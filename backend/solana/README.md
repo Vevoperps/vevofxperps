@@ -34,8 +34,23 @@ curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev 
 avm install 1.2.0 && avm use 1.2.0
 cd /mnt/d/dev/fxperps/backend/solana
 yarn install
-anchor build && anchor keys sync && anchor build
-anchor test --validator legacy
+anchor build && anchor keys sync && anchor build        # IDL + TypeScript types
+cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
+```
+
+**Always deploy the `.so` from `cargo build-sbf`.** Anchor 1.2's own build emits
+an SBPF v3 binary (ELF flags `0x3`) that the current validators reject with
+"ELF error: invalid file header"; `cargo build-sbf` emits SBPF v0, which is what
+CI deploys and tests (22 passing).
+
+To run the tests locally, do what CI does: start `solana-test-validator`,
+`solana program deploy target/deploy/vevo.so --program-id target/deploy/vevo-keypair.json`,
+then
+
+```bash
+ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 ANCHOR_WALLET=~/.config/solana/id.json \
+  NODE_OPTIONS=--no-experimental-strip-types \
+  yarn run ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
 ```
 
 `anchor keys sync` writes the program id into `lib.rs` and `Anchor.toml` from
@@ -62,7 +77,7 @@ They must be different keys. `scripts/init.ts` refuses otherwise.
 ```bash
 solana config set --url devnet
 solana airdrop 5                                   # devnet only
-anchor deploy --provider.cluster devnet
+solana program deploy target/deploy/vevo.so --program-id target/deploy/vevo-keypair.json
 
 cp .env.example .env                               # fill RPC_URL, USDC_MINT, PUBLISHER
 yarn init-venue                                    # config, marks, vault
@@ -108,7 +123,7 @@ Remove the old `NEXT_PUBLIC_ENGINE_ADDRESS`, `NEXT_PUBLIC_SETTLEMENT_ADDRESS`,
 
 ## 6. Mainnet
 
-The same steps with `--provider.cluster mainnet`, a paid RPC, mainnet USDC and
+The same steps against mainnet (`solana config set --url <mainnet rpc>`), a paid RPC, mainnet USDC and
 real USDC in the pool. Then consider moving the upgrade authority to a
 multisig (Squads) or freezing the program.
 
