@@ -1,0 +1,157 @@
+name: devnet
+
+# Deploys the program to devnet and sets the venue up, from a button:
+# Actions -> devnet -> Run workflow.
+#
+# Secrets (Settings -> Secrets and variables -> Actions), each the full contents
+# of the keypair JSON file, e.g. [12,34,...]:
+#   DEVNET_ADMIN_KEYPAIR    admin / upgrade authority (D:\solana-keys\admin.json)
+#   DEVNET_PROGRAM_KEYPAIR  the program address       (D:\solana-keys\vevo-program.json)
+#
+# Only this workflow reads them, and it only runs when started by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "What to run"
+        type: choice
+        default: deploy+init+markets
+        options:
+          - deploy+init+markets
+          - deploy
+          - init
+          - markets
+          - liquidity
+      publisher:
+        description: "Keeper public key (becomes the oracle publisher on init)"
+        default: CmBXHsH6Pctyz8fws2vTx8odf8aE832CjSPNFWu6c5AN
+      pool_liquidity:
+        description: "Whole USDC to add to the pool (liquidity step only)"
+        default: "0"
+
+concurrency:
+  group: devnet
+  cancel-in-progress: false
+
+env:
+  RPC_URL: https://api.devnet.solana.com
+  USDC_MINT: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+  EXPECTED_ADMIN: 3fAjeM31VvHuWWwD5PjViTWvM8F2UxFQHvH4MZPHM7qg
+  EXPECTED_PROGRAM: 2XbvCuDYXCUw4cuBs7ngsg4k6Trr6HuUUvPJ29R27sMo
+
+jobs:
+  devnet:
+    name: devnet (${{ inputs.steps }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/solana
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust, Solana CLI and Anchor
+        working-directory: .
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
+
+      - name: Pin Anchor 1.2.0
+        run: |
+          avm install 1.2.0 || true
+          avm use 1.2.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend/solana
+
+      # Keys go to files readable only by the runner user, and are checked
+      # against the expected public keys before anything is signed.
+      - name: Keys
+        env:
+          ADMIN_JSON: ${{ secrets.DEVNET_ADMIN_KEYPAIR }}
+          PROGRAM_JSON: ${{ secrets.DEVNET_PROGRAM_KEYPAIR }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/keys" target/deploy
+          printf '%s' "$ADMIN_JSON" > "$RUNNER_TEMP/keys/admin.json"
+          printf '%s' "$PROGRAM_JSON" > target/deploy/vevo-keypair.json
+          admin=$(solana-keygen pubkey "$RUNNER_TEMP/keys/admin.json")
+          program=$(solana-keygen pubkey target/deploy/vevo-keypair.json)
+          echo "admin   $admin"
+          echo "program $program"
+          [ "$admin" = "$EXPECTED_ADMIN" ] || { echo "::error::DEVNET_ADMIN_KEYPAIR is not $EXPECTED_ADMIN"; exit 1; }
+          [ "$program" = "$EXPECTED_PROGRAM" ] || { echo "::error::DEVNET_PROGRAM_KEYPAIR is not $EXPECTED_PROGRAM"; exit 1; }
+          grep -q "declare_id!(\"$EXPECTED_PROGRAM\")" programs/vevo/src/lib.rs || { echo "::error::lib.rs declare_id is not $EXPECTED_PROGRAM"; exit 1; }
+          solana config set --url "$RPC_URL" --keypair "$RUNNER_TEMP/keys/admin.json"
+          echo "ADMIN_KEYPAIR=$RUNNER_TEMP/keys/admin.json" >> "$GITHUB_ENV"
+
+      - name: Balance
+        run: |
+          solana balance || true
+          # Best effort: the devnet faucet often rate-limits CI runners.
+          lamports=$(solana balance --lamports | awk '{print $1}')
+          if [ "${lamports:-0}" -lt 5000000000 ]; then solana airdrop 2 || true; sleep 5; solana balance || true; fi
+
+      # IDL and types from Anchor; the deployable SBPF v0 binary from
+      # cargo build-sbf (Anchor 1.2's own .so is SBPF v3, which devnet rejects).
+      - name: Build
+        run: |
+          anchor build
+          cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
+          sha256sum target/deploy/vevo.so
+
+      - name: Deploy (or upgrade)
+        if: inputs.steps == 'deploy+init+markets' || inputs.steps == 'deploy'
+        run: |
+          solana program deploy target/deploy/vevo.so \
+            --program-id target/deploy/vevo-keypair.json \
+            --with-compute-unit-price 50000 \
+            --max-sign-attempts 60 \
+            --use-rpc
+          sleep 5
+          solana program show "$EXPECTED_PROGRAM"
+
+      # A deploy that dies half way leaves a buffer holding the SOL; close it
+      # so the SOL comes back to the admin wallet.
+      - name: Refund unfinished deploy buffers
+        if: failure()
+        run: solana program close --buffers --bypass-warning || true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install JS dependencies
+        run: yarn install
+
+      - name: Initialise the venue
+        if: inputs.steps == 'deploy+init+markets' || inputs.steps == 'init'
+        env:
+          PUBLISHER: ${{ inputs.publisher }}
+          NODE_OPTIONS: --no-experimental-strip-types
+        run: node --import tsx scripts/init.ts
+
+      - name: List markets
+        if: inputs.steps == 'deploy+init+markets' || inputs.steps == 'markets'
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types
+        run: node --import tsx scripts/list-markets.ts
+
+      - name: Provide liquidity
+        if: inputs.steps == 'liquidity'
+        env:
+          POOL_LIQUIDITY: ${{ inputs.pool_liquidity }}
+          NODE_OPTIONS: --no-experimental-strip-types
+        run: node --import tsx scripts/provide-liquidity.ts
+
+      - name: Summary
+        if: always()
+        run: |
+          solana balance || true
+          solana program show "$EXPECTED_PROGRAM" || true
+
+      - name: Remove keys
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys" target/deploy/vevo-keypair.json
