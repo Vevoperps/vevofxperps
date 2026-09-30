@@ -34,7 +34,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RPC_URL: https://api.devnet.solana.com
   USDC_MINT: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
   EXPECTED_ADMIN: 3fAjeM31VvHuWWwD5PjViTWvM8F2UxFQHvH4MZPHM7qg
   EXPECTED_PROGRAM: 2XbvCuDYXCUw4cuBs7ngsg4k6Trr6HuUUvPJ29R27sMo
@@ -43,6 +42,10 @@ jobs:
   devnet:
     name: devnet (${{ inputs.steps }})
     runs-on: ubuntu-latest
+    env:
+      # Optional secret DEVNET_RPC_URL (e.g. a free Helius/QuickNode devnet URL);
+      # the public endpoint rate-limits hard.
+      RPC_URL: ${{ secrets.DEVNET_RPC_URL || 'https://api.devnet.solana.com' }}
     defaults:
       run:
         working-directory: backend/solana
@@ -102,14 +105,39 @@ jobs:
           cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
           sha256sum target/deploy/vevo.so
 
+      # A deploy that died earlier leaves a buffer holding the SOL for the
+      # program's rent. Closing it returns that SOL to the admin wallet.
+      - name: Close leftover buffers
+        if: inputs.steps == 'deploy+init+markets' || inputs.steps == 'deploy'
+        run: |
+          solana program show --buffers || true
+          solana program close --buffers --bypass-warning || true
+          solana balance
+
+      # A fresh deploy holds the rent twice at its peak: once in the buffer and
+      # once in the program data account, until the buffer is closed.
+      - name: Check the balance covers the deploy
+        if: inputs.steps == 'deploy+init+markets' || inputs.steps == 'deploy'
+        run: |
+          size=$(stat -c%s target/deploy/vevo.so)
+          rent=$(solana rent "$size" --lamports | awk '/Rent-exempt minimum/ {print $3}')
+          need=$(( rent * 2 + 200000000 ))
+          have=$(solana balance --lamports | awk '{print $1}')
+          echo "program $size bytes, rent $rent lamports, need $need, have $have"
+          if [ "$have" -lt "$need" ]; then
+            echo "::error::admin needs $(awk "BEGIN{printf \"%.2f\", $need/1e9}") SOL for this deploy, has $(awk "BEGIN{printf \"%.2f\", $have/1e9}") SOL. Top up $EXPECTED_ADMIN at faucet.solana.com"
+            exit 1
+          fi
+
+      # Straight to the validators (TPU), not through the RPC's rate limit.
       - name: Deploy (or upgrade)
         if: inputs.steps == 'deploy+init+markets' || inputs.steps == 'deploy'
+        timeout-minutes: 20
         run: |
           solana program deploy target/deploy/vevo.so \
             --program-id target/deploy/vevo-keypair.json \
             --with-compute-unit-price 50000 \
-            --max-sign-attempts 60 \
-            --use-rpc
+            --max-sign-attempts 30
           sleep 5
           solana program show "$EXPECTED_PROGRAM"
 
