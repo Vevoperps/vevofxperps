@@ -47,7 +47,7 @@ use events::*;
 use state::*;
 
 // Replaced by `anchor keys sync` with the address of this program's keypair.
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("2XbvCuDYXCUw4cuBs7ngsg4k6Trr6HuUUvPJ29R27sMo");
 
 #[program]
 pub mod vevo {

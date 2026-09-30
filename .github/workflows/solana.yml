@@ -69,29 +69,35 @@ jobs:
       # The first build creates target/deploy/vevo-keypair.json; `keys sync`
       # then points declare_id! and Anchor.toml at it, and the second build
       # bakes that address in.
-      - name: Build
+      # The release build: the program id committed in lib.rs / Anchor.toml
+      # (the address of the operator's own program keypair, which never leaves
+      # their machine). Anchor gives the IDL and types; `cargo build-sbf` gives
+      # the deployable SBPF v0 binary (Anchor 1.2's own .so is SBPF v3, which
+      # the clusters reject).
+      - name: Release build (committed program id)
         run: |
           anchor build
+          cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
+          mkdir -p "$RUNNER_TEMP/release"
+          cp target/deploy/vevo.so target/idl/vevo.json target/types/vevo.ts "$RUNNER_TEMP/release/"
+          grep -o 'declare_id!("[^"]*")' programs/vevo/src/lib.rs | tee "$RUNNER_TEMP/release/PROGRAM_ID.txt"
+          sha256sum "$RUNNER_TEMP/release/vevo.so" | tee "$RUNNER_TEMP/release/SHA256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vevo-program
+          path: ${{ runner.temp }}/release
+          retention-days: 30
+
+      # The test build: a throwaway program keypair, synced in, so the test
+      # validator can deploy it through the upgradeable loader like devnet does.
+      - name: Build
+        run: |
           anchor keys sync
           anchor build
 
-      # What `anchor build` left behind, for the log.
-      - name: Inspect artifacts
-        run: |
-          ls -la target/deploy
-          file target/deploy/vevo.so || true
-          readelf -h target/deploy/vevo.so || true
-          cargo-build-sbf --version || true
-
-      # The deployable binary from Agave's own `cargo build-sbf`, the same tool
-      # the CLI that deploys it ships with. Anchor's build above still provides
-      # the IDL and the TypeScript types the tests import.
       - name: Build SBF binary
-        run: |
-          cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
-          ls -la target/deploy
-          file target/deploy/vevo.so || true
-          readelf -h target/deploy/vevo.so || true
+        run: cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
 
       # The program is deployed the way it will be on devnet: through the
       # upgradeable loader, with this wallet as upgrade authority. `initialize`

@@ -9,13 +9,13 @@ skip-lint = false
 # of target/deploy/vevo-keypair.json. Keep that keypair: it IS the program
 # address. Never commit it (see .gitignore).
 [programs.localnet]
-vevo = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+vevo = "2XbvCuDYXCUw4cuBs7ngsg4k6Trr6HuUUvPJ29R27sMo"
 
 [programs.devnet]
-vevo = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+vevo = "2XbvCuDYXCUw4cuBs7ngsg4k6Trr6HuUUvPJ29R27sMo"
 
 [programs.mainnet]
-vevo = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+vevo = "2XbvCuDYXCUw4cuBs7ngsg4k6Trr6HuUUvPJ29R27sMo"
 
 [provider]
 cluster = "localnet"
