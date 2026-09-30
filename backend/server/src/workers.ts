@@ -5,7 +5,7 @@ import { getKv, pool as db, positionFromRow, read, setKv } from "./db.js";
 import { positionView } from "./engine.js";
 import { markets as table } from "./markets.js";
 import { creditDeposit, liquidateOne, now, postMarks } from "./ops.js";
-import { broadcast, connection, incomingTransfers, outcome, prepareWithdrawal, treasuryToken } from "./solana.js";
+import { broadcast, connection, ensureTreasuryAccount, incomingTransfers, outcome, prepareWithdrawal, treasuryToken } from "./solana.js";
 
 /**
  * The loops that keep the venue running. Each one is independent, logs its
@@ -64,8 +64,15 @@ export const pushPrices = async (): Promise<void> => {
   }
 
   const posted = await postMarks(targets);
+  // One line on the first round and then every ~5 minutes, so the log shows the feed is alive.
+  if (lastQuote.at === 0 || now() - lastLogged >= 300) {
+    console.log(`[prices] ${posted} marks posted, quote ${age}s old`);
+    lastLogged = now();
+  }
   lastQuote = { at: now(), age, count: posted };
 };
+
+let lastLogged = 0;
 
 // -------------------------------------------------------------- liquidations
 
@@ -101,7 +108,16 @@ const CURSOR = "deposit_cursor";
  * about it — a user who sends USDC straight from their wallet is still
  * credited. Oldest first, and the cursor only moves past what was processed.
  */
+let treasuryReady = false;
+
 export const scanDeposits = async (): Promise<void> => {
+  // Deposits land in the treasury's USDC account; until it exists (the
+  // treasury needs a little SOL to create it) keep trying, round after round.
+  if (!treasuryReady) {
+    await ensureTreasuryAccount();
+    treasuryReady = true;
+    console.log(`[deposits] treasury USDC account ready: ${treasuryToken.toBase58()}`);
+  }
   const until = (await getKv(CURSOR)) ?? undefined;
   const page = await connection.getSignaturesForAddress(treasuryToken, { until, limit: 100 }, "finalized");
   if (page.length === 0) return;

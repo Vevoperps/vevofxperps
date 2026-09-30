@@ -84,7 +84,12 @@ export const ensureTreasuryAccount = async (): Promise<void> => {
   const info = await connection.getAccountInfo(treasuryToken);
   if (info) return;
   console.log(`[solana] creating the treasury USDC account ${treasuryToken.toBase58()}`);
-  await sendSigned([createAtaIdempotent(treasury.publicKey, treasury.publicKey)]);
+  const sent = await sendSigned([createAtaIdempotent(treasury.publicKey, treasury.publicKey)]);
+  const result = await connection.confirmTransaction(
+    { signature: sent.signature, blockhash: sent.blockhash, lastValidBlockHeight: sent.lastValidBlockHeight },
+    "confirmed",
+  );
+  if (result.value.err) throw new Error(`treasury account creation failed: ${JSON.stringify(result.value.err)}`);
 };
 
 /** USDC held by an owner's associated account, in base units (0 when none). */
@@ -175,7 +180,7 @@ const sendSigned = async (instructions: TransactionInstruction[]) => {
   tx.sign([treasury]);
   const signature = bs58.encode(tx.signatures[0] as Uint8Array);
   await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 5 });
-  return { signature, lastValidBlockHeight, raw: tx.serialize() };
+  return { signature, blockhash, lastValidBlockHeight, raw: tx.serialize() };
 };
 
 /**
