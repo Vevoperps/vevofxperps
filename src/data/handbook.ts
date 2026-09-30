@@ -95,7 +95,7 @@ export const handbook = {
           items: [
             {
               term: "Connect",
-              body: "one signature, no deposit yet. It proves the address is yours.",
+              body: "no deposit yet. The first action asks for one sign-in signature: no transaction, no fee. After that, trades are one click.",
             },
             {
               term: "Deposit",
@@ -142,7 +142,7 @@ export const handbook = {
           items: [
             {
               term: "Caps are per pair",
-              body: "high on liquid majors, lower on volatile currencies. The ticket shows the cap before you sign.",
+              body: "high on liquid majors, lower on volatile currencies. The ticket shows the cap before you confirm.",
             },
             {
               term: "Margin is isolated",
@@ -174,7 +174,7 @@ export const handbook = {
       blocks: [
         {
           kind: "text",
-          body: "A position is liquidated when its equity falls to the maintenance margin. The price at which that happens is printed on the ticket before you sign, and it does not move unless you add margin.",
+          body: "A position is liquidated when its equity falls to the maintenance margin. The price at which that happens is printed on the ticket before you confirm, and it does not move unless you add margin.",
         },
         {
           kind: "note",

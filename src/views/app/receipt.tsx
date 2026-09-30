@@ -13,7 +13,7 @@ import { venue } from "@/lib/chain/venue";
  * numbers on it are a particular trade's and have to come off the chain rather
  * than out of an image editor.
  *
- * **Every line is from the close event, or derived from it.** The contract
+ * **Every line is from the close record, or derived from it.** The venue
  * emits the exit price, the payout, the result, the fee and the funding. The
  * margin is not emitted, but it is recoverable exactly: the payout is the
  * margin plus the result, less the fee and the funding, so the margin is what

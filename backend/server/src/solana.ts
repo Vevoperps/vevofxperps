@@ -154,6 +154,14 @@ export const incomingTransfers = async (signature: string): Promise<IncomingTran
 
     const sender = (info.authority ?? info.multisigAuthority) as string | undefined;
     if (!sender || sender === treasury.publicKey.toBase58()) continue;
+    // Only a wallet can sign in and withdraw. USDC arriving from a program
+    // (a DEX pool paying out a swap into the treasury, say) is not anybody's
+    // deposit, and is left out of the ledger rather than credited to a PDA.
+    try {
+      if (!PublicKey.isOnCurve(new PublicKey(sender).toBytes())) continue;
+    } catch {
+      continue;
+    }
 
     const raw =
       parsed.type === "transferChecked"

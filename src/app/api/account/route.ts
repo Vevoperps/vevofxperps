@@ -15,7 +15,7 @@ import { venue } from "@/lib/chain/venue";
 import { PAIRS } from "@/lib/markets";
 
 /**
- * One account, in one round trip: balance, allowance and every open position.
+ * One account, in one round trip: balance and every open position.
  *
  * The portfolio and the order ticket both need this and both poll it, so it is
  * one endpoint rather than two — and one `positionsView` call against the
@@ -46,7 +46,7 @@ export interface AccountSnapshot {
   /** Whether the engine may already pull settlement tokens for this account. */
   approved: boolean;
   positions: ChainPosition[];
-  /** What this account has done, newest first, from the contract's events. */
+  /** What this account has done, newest first, from the venue's ledger. */
   activity: Activity[];
 }
 

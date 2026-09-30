@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 
+import { config } from "./config.js";
 import { pool } from "./db.js";
 
 /**
@@ -35,6 +36,10 @@ export const listMarkets = async (): Promise<number> => {
       [row.symbol, index, row.maxLeverage, usdc(row.skewScale), usdc(row.maxOpenInterest), usdc(row.minMargin), at],
     );
     added += result.rowCount ?? 0;
+  }
+  if (config.MIN_MARGIN !== undefined) {
+    await pool.query("UPDATE markets SET min_margin = $1", [config.MIN_MARGIN.toString()]);
+    console.log(`[markets] minimum margin set to ${Number(config.MIN_MARGIN) / 1e6} USDC on every market`);
   }
   return added;
 };

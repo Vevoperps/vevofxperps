@@ -38,7 +38,7 @@ export interface Market {
   /**
    * What this market is doing.
    *
-   * `warming` is the state the gas budget creates: the pair is quoted and the
+   * `warming` is the state a pair is in before its first mark: the pair is quoted and the
    * rate on screen is real, but no mark has been posted on chain for it yet,
    * so nothing can fill against it until the keeper writes one. It is a few
    * seconds, not an outage, and the ticket says which it is.

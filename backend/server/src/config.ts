@@ -68,6 +68,13 @@ const schema = z.object({
   LIQUIDATION_INTERVAL: seconds.default(5),
 
   /**
+   * Minimum margin for every market, in whole USDC, applied at start-up.
+   * Blank keeps each market's own (10 USDC). A small pool needs a small
+   * minimum: every position reserves 9x its margin from the pool.
+   */
+  MIN_MARGIN: z.preprocess(blankIsUnset, usdc.optional()),
+
+  /**
    * Who receives the liquidation reward. Blank: it stays in the pool, for the
    * liquidity providers. Otherwise a wallet address credited in the ledger.
    */

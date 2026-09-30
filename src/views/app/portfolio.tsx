@@ -380,7 +380,7 @@ const PositionTable = ({
 );
 
 /**
- * What this account has done, straight from the contract's events.
+ * What this account has done, from the venue's ledger.
  *
  * One table serves both the history and the transfers tab, because the two are
  * the same list filtered differently and a second component would be a second

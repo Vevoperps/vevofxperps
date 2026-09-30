@@ -9,7 +9,7 @@ import { PAIRS } from "@/lib/markets";
  * Asks the keeper to start pricing a pair, because somebody is looking at it.
  *
  * **The gap this closes.** The keeper writes marks only for markets that carry
- * risk, because keeping all sixty-four warm costs more gas than the venue
+ * risk, because keeping all sixty-four warm used to cost more gas than the venue
  * makes. A visitor who opens an untouched pair therefore sees a real, moving
  * rate and a market that cannot yet be filled against. This is how they stop
  * being the only one who knows they are there.

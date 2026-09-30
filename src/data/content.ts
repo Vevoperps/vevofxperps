@@ -130,7 +130,7 @@ export const howItWorks = {
   head: {
     id: "how",
     label: "How it works",
-    heading: ["Four steps.", "One signature per trade."],
+    heading: ["Four steps.", "One click per trade."],
     action: "Launch app",
   } satisfies SectionHead,
   steps: [

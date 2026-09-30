@@ -115,7 +115,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
  *
  * Three states, and it is never silent. Without an engine address it is the
  * preview and says the numbers are generated. With one it says the screen is
- * read from the contract. On a development chain it says that instead, in the
+ * read from the venue. On a development chain it says that instead, in the
  * warning colour, because a demo that looks like the real thing is how
  * somebody comes to believe their test balance is money.
  */

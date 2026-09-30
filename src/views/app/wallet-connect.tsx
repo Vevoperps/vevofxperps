@@ -11,7 +11,7 @@ import { discoverWallets, useWallet } from "@/lib/chain/wallet";
 /**
  * Connect a wallet.
  *
- * **It discovers wallets rather than listing them.** EIP-6963 has every
+ * **It discovers wallets rather than listing them.** The Wallet Standard has every
  * installed wallet announce itself with its own name and its own icon, so the
  * sheet shows what is actually on this machine instead of a hardcoded row of
  * four logos, three of which are not installed. It also means the icons are

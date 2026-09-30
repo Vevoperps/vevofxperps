@@ -192,7 +192,7 @@ export const documentation: Book = {
         },
         {
           kind: "text",
-          body: "The practical consequence: opening is instant, closing is instant, and the only thing standing between you and the rate is the fee and the funding. Both are printed before you sign.",
+          body: "The practical consequence: opening is instant, closing is instant, and the only thing standing between you and the rate is the fee and the funding. Both are printed before you confirm.",
         },
       ],
     },
@@ -298,7 +298,7 @@ export const documentation: Book = {
             },
             {
               term: "4. Read the liquidation price",
-              body: "it is printed before you sign. Ask yourself whether the pair could reach it in an afternoon.",
+              body: "it is printed before you confirm. Ask yourself whether the pair could reach it in an afternoon.",
             },
             {
               term: "5. Confirm",
@@ -403,7 +403,7 @@ export const documentation: Book = {
           items: [
             {
               term: "Caps are per pair",
-              body: "high on liquid majors, lower on volatile currencies. The ticket shows the cap before you sign.",
+              body: "high on liquid majors, lower on volatile currencies. The ticket shows the cap before you confirm.",
             },
             {
               term: "Margin is isolated",
@@ -456,7 +456,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: "Everything that decides whether a trade is worth taking is printed before you sign: entry, notional, liquidation price, fee and the capped payout. None of it is estimated after the fact.",
+          body: "Everything that decides whether a trade is worth taking is printed before you confirm: entry, notional, liquidation price, fee and the capped payout. None of it is estimated after the fact.",
         },
         {
           kind: "list",
@@ -483,7 +483,7 @@ export const documentation: Book = {
             },
             {
               term: "Funding",
-              body: "the rate running at the moment you sign, and which side is paying it.",
+              body: "the rate running at the moment you confirm, and which side is paying it.",
             },
           ],
         },
@@ -504,11 +504,11 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: "There is one order type and it fills at the mark. No limit ladder, no queue position, no partial fill to chase: you sign and the position exists at the next live print.",
+          body: "There is one order type and it fills at the mark. No limit ladder, no queue position, no partial fill to chase: you confirm and the position exists at the live print.",
         },
         {
           kind: "text",
-          body: "That is a deliberate trade. A limit order lets you wait for a better price; it also lets you sit unfilled through the move you were waiting for. Filling at the mark means the only thing between the decision and the position is your own signature.",
+          body: "That is a deliberate trade. A limit order lets you wait for a better price; it also lets you sit unfilled through the move you were waiting for. Filling at the mark means the only thing between the decision and the position is your own click.",
         },
         {
           kind: "note",
@@ -590,7 +590,7 @@ export const documentation: Book = {
           items: [
             {
               term: "Full close",
-              body: "the whole position, one signature, settled at the next print.",
+              body: "the whole position, one click, settled at the live print.",
             },
             {
               term: "Partial close",
@@ -615,7 +615,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: "A position is liquidated when its equity falls to the maintenance margin, which is 0.5% of notional. The price at which that happens is printed on the ticket before you sign, and it does not move unless you add margin or funding accrues against you.",
+          body: "A position is liquidated when its equity falls to the maintenance margin, which is 0.5% of notional. The price at which that happens is printed on the ticket before you confirm, and it does not move unless you add margin or funding accrues against you.",
         },
         {
           kind: "figures",
@@ -1523,7 +1523,7 @@ export const tradingGuide: Book = {
         },
         {
           kind: "note",
-          body: "At 25x, a 4% move against the position is the whole margin. At 5x the same move costs a fifth of it. The ticket prints that number before you sign; it is the one to read first.",
+          body: "At 25x, a 4% move against the position is the whole margin. At 5x the same move costs a fifth of it. The ticket prints that number before you confirm; it is the one to read first.",
         },
       ],
     },

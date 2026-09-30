@@ -33,7 +33,7 @@ export const app = {
    * there would be true and misleading at once.
    */
   bannerTestnet: (chain: string) =>
-    `live on ${chain.toLowerCase()}, a test network. every price, balance and position is read from the program, and the usdc is devnet usdc from circle's faucet, worth nothing.`,
+    `live on ${chain.toLowerCase()}, a test network. every price, balance and position is real on the venue, and the usdc is devnet usdc from circle's faucet, worth nothing.`,
   /**
    * `ready: false` prints the item and refuses to link it. A nav that leads to
    * a 404 is worse than one that says a screen is still being built.
@@ -365,7 +365,7 @@ export const app = {
     facts: {
       title: "The token",
       ticker: "Ticker",
-      contract: "Contract",
+      contract: "Token address",
       contractSoon: "not minted yet",
       chain: "Chain",
       supply: "Total supply",

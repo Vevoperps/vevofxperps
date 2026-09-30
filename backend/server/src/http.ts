@@ -353,10 +353,24 @@ const send = (res: ServerResponse, status: number, payload: unknown, origin: str
   res.end(status === 204 ? undefined : JSON.stringify(payload, bigintJson));
 };
 
+/**
+ * Exact origins, plus `https://*.example.com` patterns for preview deploys.
+ * Sessions are bearer tokens, not cookies, so allowing an origin lets it read
+ * public responses; it gives it no way to act as a signed-in user.
+ */
+const originAllowed = (origin: string): boolean =>
+  config.ALLOWED_ORIGINS.some((allowed) => {
+    if (allowed === origin) return true;
+    const wildcard = /^https:\/\/\*\.(.+)$/.exec(allowed);
+    if (!wildcard || !origin.startsWith("https://")) return false;
+    const host = origin.slice("https://".length);
+    return host.endsWith(`.${wildcard[1]}`) && !host.includes("/");
+  });
+
 export const startHttp = (): void => {
   const server = createServer(async (req, res) => {
     const requestOrigin = req.headers.origin ?? null;
-    const origin = requestOrigin && config.ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : null;
+    const origin = requestOrigin && originAllowed(requestOrigin) ? requestOrigin : null;
 
     try {
       const url = new URL(req.url ?? "/", "http://localhost");

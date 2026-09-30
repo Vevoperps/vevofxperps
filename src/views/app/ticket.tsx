@@ -27,7 +27,7 @@ import { ReceiptCard } from "@/views/app/receipt";
  * so the page and the handbook can never disagree: notional is margin times
  * leverage, the fee is 0.05% of notional, the liquidation price is the entry
  * moved by one over the leverage less the maintenance margin, and the payout
- * is capped at ten times the margin. The contract computes the same four from
+ * is capped at ten times the margin. The venue computes the same four from
  * the same constants, so the ticket is a preview of the transaction rather
  * than an illustration of one.
  *
@@ -73,7 +73,7 @@ export const Ticket = ({
    * Quoted, but with no mark on chain yet.
    *
    * The rate beside this ticket is real; what is missing is the number the
-   * contract would fill at, which the keeper writes once it knows somebody is
+   * venue would fill at, which the price loop writes once it knows somebody is
    * here. A button offered in that window would open a wallet and then revert,
    * so the ticket says what is happening instead.
    */
@@ -456,7 +456,7 @@ const PositionPanel = ({
       </dl>
 
       {/* Two things a position needs that closing it does not do: more room
-        before liquidation, and a way out of part of it. The contract has
+        before liquidation, and a way out of part of it. The venue has
         supported both from the start. */}
       <div className="flex flex-col gap-3">
         <Label tone="ink">

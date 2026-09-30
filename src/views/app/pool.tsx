@@ -184,7 +184,7 @@ export const AppPool = () => {
                 The ceiling is the smaller of what this provider owns and what
                 the pool has free: liquidity reserved behind an open position
                 cannot come out until that position closes, and offering it
-                would be offering something the contract will refuse.
+                would be offering something the venue will refuse.
               */}
               <Row
                 value={redeem}
