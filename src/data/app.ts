@@ -24,7 +24,7 @@ export const app = {
   banner:
     "this is a read-only preview. prices are simulated until the feed is connected, and deposits, orders and withdrawals are off.",
   bannerLive: (chain: string) =>
-    `live on ${chain.toLowerCase()}. every price, balance and position on this screen is read from the program.`,
+    `live. deposits and withdrawals in usdc on ${chain.toLowerCase()}; every price, balance and position on this screen is the venue's own, live.`,
   bannerLocal:
     "connected to a local validator. the usdc here is a test mint and is worth nothing.",
   /**

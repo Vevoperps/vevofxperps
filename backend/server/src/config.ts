@@ -59,6 +59,12 @@ const schema = z.object({
   // --- prices ----------------------------------------------------------------
   FX_URL: z.string().url().default("https://api.fxratesapi.com/latest"),
   PRICE_INTERVAL: seconds.default(15),
+  /**
+   * How often the FX source itself is asked, in seconds. Its quote changes
+   * about once a minute and its free tier rate-limits, so marks are re-posted
+   * every PRICE_INTERVAL from the last quote rather than re-fetched each time.
+   */
+  FX_INTERVAL: seconds.default(60),
   /** Seconds a mark stays usable for trading. */
   MARK_MAX_AGE: seconds.default(120),
   /** The most one update may move a live mark, in bps. Larger moves are walked. */

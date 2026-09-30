@@ -43,22 +43,49 @@ const toWad = (rate: number): bigint | null => {
 let lastQuote = { at: 0, age: 0, count: 0 };
 export const quoteStatus = () => lastQuote;
 
-export const pushPrices = async (): Promise<void> => {
+/** The last quote the source gave, kept between fetches. */
+let quote: { rates: Record<string, number>; timestamp: number; fetchedAt: number } | null = null;
+/** When a rate-limited or failing source may be asked again, unix seconds. */
+let retryAt = 0;
+
+const refreshQuote = async (): Promise<void> => {
+  const at = now();
+  if (quote && at - quote.fetchedAt < config.FX_INTERVAL) return;
+  if (at < retryAt) return;
+
   const response = await fetch(`${config.FX_URL}?base=USD`, { headers: { accept: "application/json" } });
-  if (!response.ok) throw new Error(`fx ${response.status}`);
+  if (!response.ok) {
+    // Back off: 429 means the free tier wants fewer calls, not the same call again.
+    const wait = Number(response.headers.get("retry-after")) || (response.status === 429 ? 300 : 60);
+    retryAt = at + wait;
+    throw new Error(`fx ${response.status}; next try in ${wait}s`);
+  }
   const body = (await response.json()) as { timestamp?: number; rates?: Record<string, number> };
   const rates = body.rates ?? {};
-  const age = body.timestamp ? Math.max(0, now() - body.timestamp) : 0;
-
   if (Object.keys(rates).length === 0) throw new Error("fx source returned no rates");
+  quote = { rates, timestamp: body.timestamp ?? at, fetchedAt: at };
+};
+
+export const pushPrices = async (): Promise<void> => {
+  let problem: unknown = null;
+  try {
+    await refreshQuote();
+  } catch (error) {
+    // Keep posting the last good quote while it is young enough.
+    problem = error;
+  }
+  if (!quote) throw problem ?? new Error("no fx quote yet");
+
+  const age = Math.max(0, now() - quote.timestamp);
   if (age > config.MAX_QUOTE_AGE) {
     console.warn(`[prices] quote is ${age}s old — not posting it as a fresh mark`);
+    if (problem) throw problem;
     return;
   }
 
   const targets = new Map<string, bigint>();
   for (const market of table) {
-    const rate = rates[market.symbol.slice(3)];
+    const rate = quote.rates[market.symbol.slice(3)];
     const value = rate === undefined ? null : toWad(rate);
     if (value !== null) targets.set(market.symbol, value);
   }
@@ -70,6 +97,7 @@ export const pushPrices = async (): Promise<void> => {
     lastLogged = now();
   }
   lastQuote = { at: now(), age, count: posted };
+  if (problem) console.warn("[prices]", problem instanceof Error ? problem.message : problem);
 };
 
 let lastLogged = 0;

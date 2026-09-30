@@ -43,11 +43,11 @@ const EMPTY: Rates = { by: new Map(), at: 0 };
  * How long one fetch serves.
  *
  * The markets route is polled every fifteen seconds by every open tab, and the
- * rates behind it move on the minute, not the tick. Twenty seconds keeps the
+ * rates behind it move on the minute, not the tick. Sixty seconds keeps the
  * table alive without turning a hundred visitors into a hundred requests to
  * somebody else's API.
  */
-const TTL = 20_000;
+const TTL = 60_000;
 
 /** Two seconds: past that the page is better off stale than waiting. */
 const TIMEOUT = 2_000;
