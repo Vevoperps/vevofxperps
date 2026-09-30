@@ -75,6 +75,24 @@ jobs:
           anchor keys sync
           anchor build
 
+      # What `anchor build` left behind, for the log.
+      - name: Inspect artifacts
+        run: |
+          ls -la target/deploy
+          file target/deploy/vevo.so || true
+          readelf -h target/deploy/vevo.so || true
+          cargo-build-sbf --version || true
+
+      # The deployable binary from Agave's own `cargo build-sbf`, the same tool
+      # the CLI that deploys it ships with. Anchor's build above still provides
+      # the IDL and the TypeScript types the tests import.
+      - name: Build SBF binary
+        run: |
+          cargo build-sbf --manifest-path programs/vevo/Cargo.toml --sbf-out-dir target/deploy
+          ls -la target/deploy
+          file target/deploy/vevo.so || true
+          readelf -h target/deploy/vevo.so || true
+
       # The program is deployed the way it will be on devnet: through the
       # upgradeable loader, with this wallet as upgrade authority. `initialize`
       # checks exactly that, so a genesis-loaded program would not do.
