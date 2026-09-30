@@ -21,7 +21,7 @@ import { config } from "./config.js";
  */
 
 export const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hWg2rDNE88NWJQSzXuUXtC4bG2u");
+export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 export const USDC_DECIMALS = 6;
 
 export const connection = new Connection(config.RPC_URL, "confirmed");
