@@ -62,7 +62,7 @@ export const app = {
     note: (chain: string) =>
       `connecting only proves the address is yours. nothing moves on ${chain.toLowerCase()} in this preview: deposits are off.`,
     noteLive: (chain: string) =>
-      `connecting only proves the address is yours. nothing moves on ${chain.toLowerCase()} until you sign a deposit, and no one but you can move your balance afterwards.`,
+      `connecting only proves the address is yours. nothing moves on ${chain.toLowerCase()} until you sign a deposit, and withdrawals only ever go back to this wallet.`,
     /**
      * The wallets worth naming when none is installed.
      *
@@ -97,7 +97,7 @@ export const app = {
   home: {
     badge: "Read-only preview · 64 pairs",
     /** Once the marks are the engine's own. */
-    badgeLive: (count: number) => `Live · ${count} pairs onchain`,
+    badgeLive: (count: number) => `Live · ${count} pairs`,
     heading: "Pick a currency",
     lede: `every pair is quoted against the us dollar and trades 24/7 from one ${brand.chain.settlement} balance. choose one to open the terminal.`,
     primary: "All pairs",
@@ -250,8 +250,9 @@ export const app = {
     shares: "Shares",
     add: "Provide",
     remove: "Redeem",
-    addLabel: (asset: string, wallet: string) =>
-      `Provide ${asset} · wallet ${wallet}`,
+    /** Liquidity comes from the free balance: deposit first, then provide. */
+    addLabel: (asset: string, free: string) =>
+      `Provide ${asset} · free balance ${free}`,
     removeLabel: (value: string) => `Redeem, up to ${value}`,
     max: "Max",
     /**
@@ -299,6 +300,10 @@ export const app = {
       `${asset} transfers. Idle balance ${idle}, withdrawable · ${wallet} in wallet, depositable`,
     deposit: "Deposit",
     withdraw: "Withdraw",
+    /** After a withdrawal request: sent automatically, or held for a manual check. */
+    withdrawQueued: "withdrawal on its way. it lands in your wallet within a minute.",
+    withdrawReview:
+      "withdrawal received. larger amounts get a manual check before they are sent, usually within a few hours.",
     /** Test networks only: a link to Circle's devnet USDC faucet. */
     faucet: "Get devnet USDC",
     columns: {
@@ -401,7 +406,7 @@ export const app = {
        * signature. The moment the address is configured these become live.
        */
       soon: "Staking opens when the vault is deployed",
-      why: "the vault is the audited synthetix staking pattern: stake, accrue, claim, withdraw. no lockup, no admin key over your stake.",
+      why: "the vault follows the synthetix staking pattern: stake, accrue, claim, withdraw. no lockup.",
     },
 
     tiers: {
@@ -473,7 +478,7 @@ export const app = {
     funding: "FUNDING",
     payout: "Payout",
     filled: "closed at the mark. no order book, no queue.",
-    settled: (chain: string) => `settled on ${chain.toLowerCase()}.`,
+    settled: (asset: string) => `settled in ${asset.toLowerCase()}.`,
     verify: "Verify",
     unknown: "unknown pair",
     /** The Receipts tab, when nothing has closed yet. */

@@ -115,7 +115,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: `${brand.name} is a perpetual futures venue for currencies. 64 of them, each quoted against the dollar, open every hour of every day, settled on ${CHAIN} in ${SETTLEMENT}.`,
+          body: `${brand.name} is a perpetual futures venue for currencies. 64 of them, each quoted against the dollar, open every hour of every day, funded and paid out in ${SETTLEMENT} on ${CHAIN}.`,
         },
         {
           kind: "text",
@@ -210,15 +210,15 @@ export const documentation: Book = {
           items: [
             {
               term: "Connect",
-              body: "one signature, no deposit yet. It proves the address is yours and nothing more.",
+              body: "no deposit yet. It shows the venue which address is yours and nothing more.",
             },
             {
-              term: "Sign per trade",
-              body: "each order is signed with a one-time nonce, so a signature cannot be replayed.",
+              term: "Sign in once",
+              body: "the first action asks the wallet to sign a message with a one-time nonce. That opens a session; after it, orders fill with one click and no wallet prompt.",
             },
             {
-              term: "Keep custody",
-              body: "there is no account to open and nothing to approve beyond the position you are taking.",
+              term: "No account",
+              body: "there is no email, no password and no form. The wallet is the account.",
             },
             {
               term: "Switch address",
@@ -228,11 +228,11 @@ export const documentation: Book = {
         },
         {
           kind: "text",
-          body: "The connect signature is not a transaction. It costs no fee, moves nothing, and can be refused at any point without leaving a trace on chain.",
+          body: "The sign-in signature is not a transaction. It costs no fee, moves nothing, and can be refused at any point without leaving a trace on chain.",
         },
         {
           kind: "note",
-          body: "Solana has no token allowances to grant. Every deposit is a transfer you sign, and nothing can draw on your wallet afterwards.",
+          body: "Solana has no token allowances to grant. Every deposit is a transfer you sign yourself, and nothing can draw on your wallet afterwards.",
         },
       ],
     },
@@ -243,7 +243,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: `Margin is held in ${SETTLEMENT}. A deposit is a plain transfer on ${CHAIN}, credited once the transaction is mined; a withdrawal sends your idle balance straight back to the address it came from.`,
+          body: `Margin is held in ${SETTLEMENT}. A deposit is a plain transfer from your wallet to the venue on ${CHAIN}, credited once the transaction is final, usually within half a minute. A withdrawal sends your idle balance back to the address that signed in, and nowhere else.`,
         },
         {
           kind: "list",
@@ -264,11 +264,11 @@ export const documentation: Book = {
         },
         {
           kind: "note",
-          body: "Only margin behind open positions is locked. Everything else leaves whenever you ask, with no queue and no venue fee.",
+          body: "Only margin behind open positions is locked. Everything else can be withdrawn whenever you ask, with no venue fee.",
         },
         {
           kind: "text",
-          body: `A withdrawal is an ordinary transfer and costs a network fee on ${CHAIN}, which is a fraction of a cent. There is no minimum, no daily limit and no approval step.`,
+          body: `A withdrawal is an ordinary ${SETTLEMENT} transfer on ${CHAIN}, and the venue pays its network fee. Most go out automatically within a minute; larger amounts are checked by hand before they are sent, usually within a few hours. The minimum is 1 ${SETTLEMENT}.`,
         },
       ],
     },
@@ -301,8 +301,8 @@ export const documentation: Book = {
               body: "it is printed before you sign. Ask yourself whether the pair could reach it in an afternoon.",
             },
             {
-              term: "5. Sign",
-              body: "one signature. The fill is the next live mark and the ticket prints with it.",
+              term: "5. Confirm",
+              body: "one click. The fill is the current live mark and the ticket prints with it.",
             },
           ],
         },
@@ -512,7 +512,7 @@ export const documentation: Book = {
         },
         {
           kind: "note",
-          body: "If a pair is paused when you sign, the order queues and fills at the next live print rather than at the last one the venue saw. See the feed chapter.",
+          body: "If a pair is paused or its price is stale, the order is refused rather than filled at the last price the venue saw. Try again at the next live print. See the feed chapter.",
         },
       ],
     },
@@ -662,7 +662,7 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: "A currency feed can stall. When one does, the pair is marked paused: open positions are held, and new orders queue and fill at the next live print rather than at a stale price.",
+          body: "A currency feed can stall. When one does, the pair stops accepting orders: open positions are held, and nothing fills at a stale price until the next live print.",
         },
         {
           kind: "list",
@@ -673,11 +673,11 @@ export const documentation: Book = {
             },
             {
               term: "New orders",
-              body: "queue, and fill at the first live print after the pause ends.",
+              body: "are refused until the first live print after the pause ends.",
             },
             {
               term: "Closes",
-              body: "queue the same way. A pause is the one moment you cannot leave instantly.",
+              body: "wait for the same print. A pause is the one moment you cannot leave instantly.",
             },
           ],
         },
@@ -838,17 +838,17 @@ export const documentation: Book = {
       blocks: [
         {
           kind: "text",
-          body: `Your balance sits in a program on ${CHAIN} and moves on your signature. There is no account, no password and no support process that can move funds on your behalf, because there is no mechanism that would let it.`,
+          body: `Deposited ${SETTLEMENT} is held by the venue in its wallet on ${CHAIN}, and your balance, positions and history are kept in the venue's ledger. Everything that changes your balance needs a session opened by your wallet's own signature.`,
         },
         {
           kind: "list",
           items: [
             {
-              term: "Withdrawal rights",
-              body: "free balance leaves to the address it came from, whenever you ask.",
+              term: "Withdrawals",
+              body: "free balance goes only to the address that signed in. Larger amounts are checked by hand before they are sent.",
             },
             {
-              term: "One signature per order",
+              term: "Sign-in",
               body: "signed with a one-time nonce. A captured signature cannot be reused.",
             },
             {
@@ -880,11 +880,11 @@ export const documentation: Book = {
             },
             {
               term: "A deposit has not landed",
-              body: `it is credited when the transaction is mined. Check the hash on the ${CHAIN} explorer before doing anything else.`,
+              body: `it is credited once the transaction is final, usually within half a minute. Check the hash on the ${CHAIN} explorer, then reload.`,
             },
             {
               term: "An order will not fill",
-              body: "the pair is probably paused. It fills at the first live print after the pause ends.",
+              body: "the pair is probably paused or its price is refreshing. Try again in a moment; the ticket says which.",
             },
             {
               term: "The numbers look stale",
@@ -894,7 +894,7 @@ export const documentation: Book = {
         },
         {
           kind: "text",
-          body: "Anything the page cannot answer is answerable on chain: every deposit, withdrawal and settlement is a transaction with a hash, and the explorer is the record of last resort.",
+          body: "Every deposit and withdrawal is a transaction with a hash on the chain, and the explorer is the record of last resort for money in and out. Trades are recorded in the venue's ledger and shown in your history.",
         },
       ],
     },
@@ -1155,7 +1155,7 @@ export const tradingGuide: Book = {
             { term: "Spread", body: "none. The entry is the mark." },
             {
               term: "Custody, inactivity, withdrawal",
-              body: "none. Network fee only.",
+              body: "none. The venue pays the network fee on withdrawals.",
             },
           ],
         },

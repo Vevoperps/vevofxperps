@@ -252,3 +252,23 @@ export const signAndSend = async (
   if (!result) throw new Error("the wallet returned no signed transaction");
   return { signed: result.signedTransaction };
 };
+
+interface SignMessageFeature {
+  signMessage: (
+    ...inputs: { account: WalletAccount; message: Uint8Array }[]
+  ) => Promise<readonly { signedMessage: Uint8Array; signature: Uint8Array }[]>;
+}
+
+/**
+ * Has the connected wallet sign a plain message — the sign-in. A message
+ * signature is not a transaction: it moves nothing and costs nothing.
+ */
+export const signMessage = async (message: string): Promise<Uint8Array> => {
+  if (!connected) throw new Error("no wallet connected");
+  const { wallet, account } = connected;
+  const signer = feature<SignMessageFeature>(wallet, "solana:signMessage");
+  if (!signer) throw new Error("this wallet cannot sign messages");
+  const [result] = await signer.signMessage({ account, message: new TextEncoder().encode(message) });
+  if (!result) throw new Error("the wallet returned no signature");
+  return result.signature;
+};

@@ -69,7 +69,7 @@ export const handbook = {
       blocks: [
         {
           kind: "text",
-          body: `${brand.name} is a perpetual futures venue for currencies. 64 of them, each quoted against the dollar, open every hour of every day, settled on ${brand.chain.name} in ${brand.chain.settlement}.`,
+          body: `${brand.name} is a perpetual futures venue for currencies. 64 of them, each quoted against the dollar, open every hour of every day, funded and paid out in ${brand.chain.settlement} on ${brand.chain.name}.`,
         },
         {
           kind: "text",
@@ -99,11 +99,11 @@ export const handbook = {
             },
             {
               term: "Deposit",
-              body: `a plain ${brand.chain.settlement} transfer. Credited once the transaction is mined.`,
+              body: `a plain ${brand.chain.settlement} transfer. Credited once the transaction is final.`,
             },
             {
               term: "Withdraw",
-              body: "idle balance leaves whenever you ask. Nothing is locked but the margin behind open positions.",
+              body: "idle balance goes back to your wallet whenever you ask; larger amounts get a manual check first. Nothing is locked but the margin behind open positions.",
             },
           ],
         },
@@ -204,7 +204,7 @@ export const handbook = {
             { term: "Open", body: "0.05% of notional." },
             { term: "Close", body: "0.05% of notional." },
             { term: "Funding", body: "skew based, capped at ±0.75% per 8h." },
-            { term: "Deposit and withdraw", body: "no venue fee, only the network fee." },
+            { term: "Deposit and withdraw", body: "no venue fee. You pay the network fee on a deposit; the venue pays it on a withdrawal." },
           ],
         },
         {

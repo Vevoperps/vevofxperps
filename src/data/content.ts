@@ -3,7 +3,7 @@
  *
  * The shapes are the reference layout's — a numbered marker, a two-line
  * heading, an optional action, then the section's own body. The substance is
- * the product's: FX perpetuals, settled onchain.
+ * the product's: FX perpetuals, settled in USDC.
  *
  * Sections are numbered `[N.01/10]` … `[N.10/10]` and the count is derived, so
  * adding or removing one re-numbers the page by itself.
@@ -49,7 +49,7 @@ export const hero = {
    */
   headline: { lead: "Trade every", tail: "with up to 25x." },
   typed: ["currency", "yen", "euro", "naira", "peso", "rupee", "real"] as const,
-  lede: `perpetual futures on 64 currencies from 75 countries against the dollar. up to 25x, one ${brand.chain.settlement} balance, settled on ${brand.chain.name.toLowerCase()}.`,
+  lede: `perpetual futures on 64 currencies from 75 countries against the dollar. up to 25x, one ${brand.chain.settlement} balance on ${brand.chain.name.toLowerCase()}.`,
   primary: "Launch app",
   secondary: "See live rates",
   trust: { label: "64 pairs live", score: "24/7" },
@@ -144,7 +144,7 @@ export const howItWorks = {
       n: "002",
       icon: "zigzag",
       title: `Deposit ${brand.chain.settlement}`,
-      body: `a plain ${brand.chain.settlement} transfer on ${brand.chain.name.toLowerCase()}, credited once the transaction is mined.`,
+      body: `a plain ${brand.chain.settlement} transfer on ${brand.chain.name.toLowerCase()}, credited once the transaction is final.`,
     },
     {
       n: "003",
@@ -156,7 +156,7 @@ export const howItWorks = {
       n: "004",
       icon: "nodes",
       title: "Close and withdraw",
-      body: "close any time. idle balance goes back to your wallet on chain.",
+      body: "close any time. withdraw your idle balance to your wallet whenever you like.",
     },
   ],
 };
@@ -197,7 +197,7 @@ export const ticket = {
     action: "Launch app",
   } satisfies SectionHead,
   lede: "the ticket is the position, not a summary of it.",
-  body: `pair, side, leverage, the price you got and the price it liquidates at, on one slip you can read in three seconds. it prints the moment the signature lands and every line on it settles on ${brand.chain.name.toLowerCase()}.`,
+  body: `pair, side, leverage, the price you got and the price it liquidates at, on one slip you can read in three seconds. it prints the moment the order fills, and every line on it settles in ${brand.chain.settlement.toLowerCase()}.`,
   /**
    * The slip itself.
    *
@@ -218,7 +218,7 @@ export const ticket = {
     printing: "Printing",
     done: "Ticket ready",
   },
-  caption: "one slip per fill. keep it or bin it, the chain has its own copy.",
+  caption: "one slip per fill. keep it or bin it, your history has its own copy.",
 };
 
 export const rates = {
@@ -469,7 +469,7 @@ export const faq = {
     {
       n: "006",
       q: "What do I need to start?",
-      a: `a solana wallet such as phantom, solflare or backpack, ${brand.chain.settlement} on ${brand.chain.name.toLowerCase()}, and a little sol for network fees.`,
+      a: `a solana wallet such as phantom, solflare or backpack, ${brand.chain.settlement} on ${brand.chain.name.toLowerCase()}, and a little sol for the deposit's network fee.`,
     },
   ],
 };
@@ -478,7 +478,7 @@ export const cta = {
   eyebrow: "Get started in a minute",
   /** Same three-line shape as the hero: the middle line is typed. */
   heading: { lead: "Every currency,", tail: "Start trading today!" },
-  typed: ["unified", "onchain", "24/7", "one balance"] as const,
+  typed: ["unified", "instant", "24/7", "one balance"] as const,
   /** The closing panel's own two lines, set over the candle field. */
   panel: {
     heading: "Start trading on vevo.",

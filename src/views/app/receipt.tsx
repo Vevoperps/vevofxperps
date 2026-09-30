@@ -116,7 +116,7 @@ export const Receipt = ({ event }: { event: Activity }) => {
 
       <div className="flex flex-col gap-0.5 text-[0.6875rem] tracking-[0.08em] uppercase opacity-70">
         <span>{receipt.filled}</span>
-        <span>{receipt.settled(venue.network.name)}</span>
+        <span>{receipt.settled(brand.chain.settlement)}</span>
         {when ? <span>{when} UTC</span> : null}
       </div>
 
@@ -124,7 +124,9 @@ export const Receipt = ({ event }: { event: Activity }) => {
 
       <div className="flex items-baseline justify-between gap-3 text-[0.625rem] tracking-[0.08em] uppercase opacity-70">
         <span>{brand.url.replace(/^https?:\/\//, "")}</span>
-        {venue.network.explorer ? (
+        {/* Only money moving in or out is a Solana transaction; trades are
+            entries in the venue's ledger and have no explorer page. */}
+        {venue.network.explorer && /^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(event.hash) ? (
           <a
             href={explorerLink(venue.network, "tx", event.hash) ?? undefined}
             target="_blank"

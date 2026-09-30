@@ -17,7 +17,7 @@ export const brand = {
   version: "V1.0-BETA",
   /** One line, used in metadata and the footer. */
   tagline:
-    "perpetual futures on the world's currencies against the dollar. open 24/7, one balance, settled onchain.",
+    "perpetual futures on the world's currencies against the dollar. open 24/7, one USDC balance, withdraw to your wallet anytime.",
 
   token: {
     /** Trading ticker, printed with the `$`. */

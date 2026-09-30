@@ -82,6 +82,8 @@ jobs:
           cp target/deploy/vevo.so target/idl/vevo.json target/types/vevo.ts "$RUNNER_TEMP/release/"
           grep -o 'declare_id!("[^"]*")' programs/vevo/src/lib.rs | tee "$RUNNER_TEMP/release/PROGRAM_ID.txt"
           sha256sum "$RUNNER_TEMP/release/vevo.so" | tee "$RUNNER_TEMP/release/SHA256.txt"
+          size=$(stat -c%s "$RUNNER_TEMP/release/vevo.so")
+          echo "vevo.so: $size bytes, rent deposit $(solana rent "$size" | awk '/Rent-exempt/ {print $3}') SOL" | tee "$RUNNER_TEMP/release/SIZE.txt"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -146,6 +148,43 @@ jobs:
         run: npx tsc --noEmit
       - name: Build
         run: npx yarn@1.22.22 build
+
+  # The custodial server: types, build, the engine's handbook tests and the
+  # ledger tests against a real Postgres.
+  server:
+    name: server
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vevo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Types
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/vevo
+        run: npm test
 
   keeper:
     name: keeper (solana)

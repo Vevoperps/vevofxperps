@@ -21,7 +21,10 @@ anchor-debug = []
 
 [dependencies]
 anchor-lang = { version = "1.2.0", features = ["init-if-needed"] }
-anchor-spl = "1.2.0"
+# Only the token interface (classic SPL Token, and Token-2022 through the same
+# CPI). The default features pull in Token-2022 extensions, ATA and metadata
+# code the program never calls, and every byte of the binary costs rent.
+anchor-spl = { version = "1.2.0", default-features = false, features = ["token", "token_2022"] }
 # `#[account(zero_copy)]` expands to `::bytemuck` paths, so the crate has to be
 # a direct dependency. `min_const_generics` lets the 80-slot marks array be Pod.
 bytemuck = { version = "1.25", features = ["derive", "min_const_generics"] }

@@ -28,7 +28,7 @@ export const siteConfig = {
    * written the way people say it, even where the wordmark is lowercase. */
   name: brand.name.charAt(0).toUpperCase() + brand.name.slice(1),
   description:
-    "Perpetual futures on 64 currencies against the dollar. 24/7, up to 25× leverage, one balance, settled onchain.",
+    "Perpetual futures on 64 currencies against the dollar. 24/7, up to 25× leverage, one USDC balance on Solana.",
   /**
    * Public origin, no trailing slash. Drives canonical URLs, OG tags, the
    * sitemap, and JSON-LD. `NEXT_PUBLIC_SITE_URL` wins in preview deployments,
@@ -74,5 +74,5 @@ export const brandMark = {
    * Not `siteConfig.description` — that is written for search results and runs
    * long enough to overflow a 1200 × 630 card at display size.
    */
-  tagline: "FX perps, onchain, 24/7.",
+  tagline: "FX perps in USDC, 24/7.",
 } as const;

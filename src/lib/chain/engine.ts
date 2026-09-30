@@ -1,126 +1,80 @@
 "use client";
 
-import { Buffer } from "buffer";
-import {
-  ComputeBudgetProgram,
-  Connection,
-  PublicKey,
-  SystemProgram,
-  TransactionInstruction,
-  TransactionMessage,
-  VersionedTransaction,
-} from "@solana/web3.js";
-
-import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-  associatedTokenAddress,
-  decodePosition,
-  instructions,
-  pdas,
-} from "./solana/vevo-client";
 import { venue } from "./venue";
-import { connectedAddress, signAndSend } from "./wallet";
+import { connectedAddress, signAndSend, signMessage } from "./wallet";
 
 /**
- * Everything the app writes to the chain, and nothing else.
+ * Everything the app changes, and nothing else.
  *
- * Each write is built here, **simulated against the current state first**,
- * and only then handed to the wallet. A transaction that is going to fail
- * fails in the simulation, where the program's own error name is in the logs
- * and `explainRevert` can turn it into a sentence — rather than after the
- * signing dialog has opened and cost a click.
+ * **Deposits are real Solana transactions.** The server builds a USDC
+ * transfer from the connected wallet to the venue's treasury; the wallet
+ * signs and sends it; the balance is credited once the transfer is final.
  *
- * The app holds no key and signs nothing on anybody's behalf.
+ * **Everything else is a signed-in request.** Trading, margin, the pool and
+ * withdrawals change the venue's ledger, so they need no transaction and no
+ * fee: the wallet signs one sign-in message (no transaction, no cost), and the
+ * session it opens lets the ledger act for that wallet only.
  */
 
-let client: Connection | null = null;
+// ------------------------------------------------------------------ session
 
-const connection = (): Connection => {
-  if (!venue.live || !venue.rpcUrl) throw new Error("the venue is not live");
-  client ??= new Connection(venue.rpcUrl, "confirmed");
-  return client;
+const SESSION_KEY = (address: string) => `vevo:session:${address}`;
+
+const storedToken = (address: string): string | null => {
+  try {
+    return window.localStorage.getItem(SESSION_KEY(address));
+  } catch {
+    return null;
+  }
 };
 
-const owner = (): PublicKey => {
-  const address = connectedAddress();
-  if (!address) throw new Error("no wallet connected");
-  return new PublicKey(address);
+const storeToken = (address: string, token: string | null): void => {
+  try {
+    if (token) window.localStorage.setItem(SESSION_KEY(address), token);
+    else window.localStorage.removeItem(SESSION_KEY(address));
+  } catch {
+    // Storage blocked: the wallet is asked to sign in again next time.
+  }
 };
 
-const venueIx = () =>
-  instructions({ programId: new PublicKey(venue.engine as string), mint: new PublicKey(venue.settlement as string) });
+/** Tokens kept in memory too, for browsers that block storage. */
+const memory = new Map<string, string>();
 
-/**
- * Creates the wallet's USDC account if it does not exist yet (the idempotent
- * form, which does nothing when it does). Withdrawals need somewhere to land.
- */
-const ensureTokenAccount = (payer: PublicKey): TransactionInstruction => {
-  const mint = new PublicKey(venue.settlement as string);
-  return new TransactionInstruction({
-    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-    keys: [
-      { pubkey: payer, isSigner: true, isWritable: true },
-      { pubkey: associatedTokenAddress(mint, payer), isSigner: false, isWritable: true },
-      { pubkey: payer, isSigner: false, isWritable: false },
-      { pubkey: mint, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    ],
-    data: Buffer.from([1]),
-  });
-};
+/** A failure the server named; `explainRevert` turns the code into a sentence. */
+class VenueError extends Error {
+  readonly code: string;
 
-/** Thrown with the program's logs attached, for `explainRevert` to read. */
-class SimulationFailed extends Error {
-  constructor(readonly logs: string[], detail: string) {
-    super(detail);
-    this.name = "SimulationFailed";
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "VenueError";
+    this.code = code;
   }
 }
 
-/**
- * Builds, simulates, signs and confirms one transaction.
- *
- * A small priority fee is attached: a trade that lands a few slots late fills
- * at a later mark, and on a busy network the fee is what keeps it prompt.
- */
-const run = async (payload: TransactionInstruction[]): Promise<string> => {
-  const payer = owner();
-  const rpc = connection();
-
-  const { blockhash, lastValidBlockHeight } = await rpc.getLatestBlockhash("confirmed");
-  const message = new TransactionMessage({
-    payerKey: payer,
-    recentBlockhash: blockhash,
-    instructions: [
-      ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 20_000 }),
-      ...payload,
-    ],
-  }).compileToV0Message();
-  const transaction = new VersionedTransaction(message);
-
-  const simulation = await rpc.simulateTransaction(transaction, { sigVerify: false });
-  if (simulation.value.err) {
-    throw new SimulationFailed(simulation.value.logs ?? [], JSON.stringify(simulation.value.err));
-  }
-
-  const result = await signAndSend(transaction.serialize());
-
-  let signature: string;
-  if ("signature" in result) {
-    signature = encodeBase58(result.signature);
-  } else {
-    signature = await rpc.sendRawTransaction(result.signed, { skipPreflight: true });
-  }
-
-  const confirmation = await rpc.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-  if (confirmation.value.err) throw new Error(`transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-  return signature;
+const me = (): string => {
+  const address = connectedAddress();
+  if (!address) throw new VenueError("no_wallet", "no wallet connected");
+  return address;
 };
 
-// A signature comes back from the wallet as bytes; the RPC wants base58.
+const call = async <T>(path: string, body: unknown, token?: string): Promise<T> => {
+  if (!venue.apiUrl) throw new VenueError("not_live", "the venue is not live");
+  const response = await fetch(`${venue.apiUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: { code: string; message: string } };
+  if (!response.ok || payload.error) {
+    throw new VenueError(payload.error?.code ?? `http_${response.status}`, payload.error?.message ?? response.statusText);
+  }
+  return payload.data as T;
+};
+
+// base58 for a signature, without another dependency.
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const encodeBase58 = (bytes: Uint8Array): string => {
   let value = 0n;
@@ -137,58 +91,107 @@ const encodeBase58 = (bytes: Uint8Array): string => {
   return out;
 };
 
-/** Solana has no token approvals: every transfer is signed by its owner. */
+const signIn = async (address: string): Promise<string> => {
+  const { message } = await call<{ message: string }>("/v1/auth/nonce", { address });
+  const signature = await signMessage(message);
+  const { token } = await call<{ token: string }>("/v1/auth/verify", {
+    address,
+    message,
+    signature: encodeBase58(signature),
+  });
+  memory.set(address, token);
+  storeToken(address, token);
+  return token;
+};
+
+/** A signed-in request; signs in first when needed, and once more if the session expired. */
+const authed = async <T>(path: string, body: unknown): Promise<T> => {
+  const address = me();
+  const token = memory.get(address) ?? storedToken(address) ?? (await signIn(address));
+  try {
+    return await call<T>(path, body, token);
+  } catch (error) {
+    if (error instanceof VenueError && error.code === "sign_in") {
+      memory.delete(address);
+      storeToken(address, null);
+      return call<T>(path, body, await signIn(address));
+    }
+    throw error;
+  }
+};
+
+// ------------------------------------------------------------------ actions
+
+/** Solana has no token approvals: the owner signs each transfer. */
 export const approveIfNeeded = async (amount: bigint): Promise<void> => {
   void amount;
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * USDC from the wallet into the venue. Resolves once the balance is credited
+ * (the transfer is final, usually 15–30 seconds); if that takes longer, the
+ * server's own scan credits it a little later all the same.
+ */
 export const deposit = async (amount: bigint): Promise<void> => {
-  await run([venueIx().deposit(owner(), amount)]);
+  const { transaction } = await authed<{ transaction: string }>("/v1/deposit/build", { amount: amount.toString() });
+  const bytes = Uint8Array.from(atob(transaction), (char) => char.charCodeAt(0));
+
+  const result = await signAndSend(bytes);
+  let signature: string;
+  if ("signature" in result) {
+    signature = encodeBase58(result.signature);
+  } else {
+    let binary = "";
+    for (const byte of result.signed) binary += String.fromCharCode(byte);
+    ({ signature } = await authed<{ signature: string }>("/v1/deposit/submit", { transaction: btoa(binary) }));
+  }
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await sleep(attempt === 0 ? 4_000 : 3_000);
+    const status = await authed<{ status: string }>("/v1/deposit/confirm", { signature }).catch(() => ({ status: "pending" }));
+    if (status.status === "done") return;
+  }
+  throw new VenueError("deposit_pending", "the deposit is on its way and will appear in your balance shortly");
 };
 
-export const withdraw = async (amount: bigint): Promise<void> => {
-  const me = owner();
-  await run([ensureTokenAccount(me), venueIx().withdraw(me, amount)]);
-};
+/** What happened to a withdrawal request, for the screen to say. */
+export interface WithdrawalRequest {
+  id: string;
+  status: "queued" | "review";
+}
 
-/** Backs the venue's side of the book, in exchange for shares of the pool. */
+export const withdraw = async (amount: bigint): Promise<WithdrawalRequest> =>
+  authed<WithdrawalRequest>("/v1/withdraw", { amount: amount.toString() });
+
+/** Moves free balance into the pool, for shares. */
 export const addLiquidity = async (amount: bigint): Promise<void> => {
-  await run([venueIx().addLiquidity(owner(), amount)]);
+  await authed("/v1/pool/add", { amount: amount.toString() });
 };
 
 /** Redeems shares — only the part of the pool no open position has reserved. */
 export const removeLiquidity = async (shares: bigint): Promise<void> => {
-  const me = owner();
-  await run([ensureTokenAccount(me), venueIx().removeLiquidity(me, shares)]);
+  await authed("/v1/pool/remove", { shares: shares.toString() });
 };
 
 export const openPosition = async (symbol: string, isLong: boolean, margin: bigint, leverage: number): Promise<void> => {
-  await run([venueIx().openPosition(owner(), symbol, isLong, margin, leverage)]);
+  await authed("/v1/trade/open", { symbol, isLong, margin: margin.toString(), leverage });
 };
 
 export const reducePosition = async (symbol: string, notional: bigint): Promise<void> => {
-  await run([venueIx().reducePosition(owner(), symbol, notional)]);
+  await authed("/v1/trade/reduce", { symbol, notional: notional.toString() });
 };
 
-/** A full close is a reduce by the whole notional, read fresh off the chain. */
 export const closePosition = async (symbol: string): Promise<void> => {
-  const me = owner();
-  const at = pdas(new PublicKey(venue.engine as string));
-  const info = await connection().getAccountInfo(at.position(at.market(symbol), me));
-  if (!info) throw new SimulationFailed([], "NoPosition");
-  const { notional } = decodePosition(info.data);
-  await reducePosition(symbol, notional);
+  await authed("/v1/trade/close", { symbol });
 };
 
 export const addMargin = async (symbol: string, amount: bigint): Promise<void> => {
-  await run([venueIx().addMargin(owner(), symbol, amount)]);
+  await authed("/v1/trade/margin", { symbol, amount: amount.toString() });
 };
 
-/**
- * Test USDC. On devnet it comes from Circle's public faucet, not from us, so
- * the screen links there instead of calling this; it is kept for the EVM-era
- * import and says where to go.
- */
+/** Test USDC on devnet comes from Circle's public faucet. */
 export const DEVNET_FAUCET_URL = "https://faucet.circle.com";
 
 export const faucet = async (to: string, amount: bigint): Promise<void> => {
@@ -197,10 +200,7 @@ export const faucet = async (to: string, amount: bigint): Promise<void> => {
   throw new Error(`devnet USDC comes from ${DEVNET_FAUCET_URL}`);
 };
 
-/**
- * Turns a failure into something a person can act on. Anchor prints
- * `Error Code: <Name>` in the logs; the names are the program's own.
- */
+/** Turns a failure into something a person can act on. */
 const REASONS: Record<string, string> = {
   InsufficientBalance: "not enough free balance",
   InsufficientLiquidity: "the pool cannot back that payout cap right now",
@@ -214,24 +214,30 @@ const REASONS: Record<string, string> = {
   NotLiquidatable: "that position is still above its maintenance margin",
   BadCloseAmount: "that is more than the position holds",
   NoPosition: "nothing open on this pair",
+  PositionExists: "you already have a position on this pair",
   ZeroAmount: "enter an amount",
-  "already in use": "you already have a position on this pair",
-  "insufficient lamports": "not enough SOL in the wallet for the fee",
-  AccountNotInitialized: "this wallet has no USDC account yet, or nothing deposited in the venue",
+  BelowMinimum: "that is below the minimum amount",
+  UnknownMarket: "this market is not listed",
+  sign_in: "sign in with your wallet to continue",
+  bad_signature: "the wallet signature did not check out, try again",
+  slow_down: "too many requests, wait a moment",
+  deposit_pending: "the deposit is on its way and will appear in your balance shortly",
+  not_live: "the venue is not live yet",
+  no_wallet: "connect a wallet first",
 };
 
 export const explainRevert = (error: unknown): string => {
-  const logs = error instanceof SimulationFailed ? error.logs : [];
-  const message = error instanceof Error ? error.message : String(error);
-  const text = `${logs.join(" ")} ${message}`;
-
-  for (const [name, plain] of Object.entries(REASONS)) {
-    if (text.includes(name)) return plain;
+  if (error instanceof VenueError) {
+    const plain = REASONS[error.code];
+    if (plain) return plain;
+    if (error.code === "internal") return "something went wrong on our side, try again";
   }
 
-  if (/user rejected|rejected the request|declined|cancel/i.test(text)) return "you cancelled it";
-  if (/0x1\b|insufficient funds/i.test(text)) return "not enough USDC in the wallet";
+  const message = error instanceof Error ? error.message : String(error);
+  if (/user rejected|rejected the request|declined|cancel/i.test(message)) return "you cancelled it";
+  if (/insufficient lamports|insufficient funds for fee/i.test(message)) return "not enough SOL in the wallet for the network fee";
+  if (/cannot sign messages/i.test(message)) return "this wallet cannot sign in; try Phantom, Solflare or Backpack";
 
   const detail = message.trim();
-  return detail ? `the transaction did not go through: ${detail.slice(0, 160)}` : "the transaction did not go through";
+  return detail ? `that did not go through: ${detail.slice(0, 160)}` : "that did not go through";
 };

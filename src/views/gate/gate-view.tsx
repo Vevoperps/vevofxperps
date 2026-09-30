@@ -132,7 +132,7 @@ export const GateView = () => {
           <form onSubmit={submitEmail} className="px-5 py-6">
             <span className="label block text-accent">Early access</span>
             <p className="mt-2 text-sm leading-relaxed text-dim-paper">
-              64 currencies against the dollar, settled onchain. Leave your
+              64 currencies against the dollar, in USDC. Leave your
               email to hear when it opens.
             </p>
 

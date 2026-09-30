@@ -37,6 +37,7 @@ export const Portfolio = ({ compact = false }: { compact?: boolean }) => {
     null,
   );
   const [problem, setProblem] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const address = useWallet((state) => state.address);
   const { snapshot, decimals, reload } = useVenueAccount();
@@ -81,6 +82,7 @@ export const Portfolio = ({ compact = false }: { compact?: boolean }) => {
     void (async () => {
       setBusy(kind);
       setProblem(null);
+      setNotice(null);
       try {
         await action();
         setAmount("");
@@ -202,7 +204,14 @@ export const Portfolio = ({ compact = false }: { compact?: boolean }) => {
             type="button"
             disabled={!live || busy !== null || amount === ""}
             onClick={() =>
-              run("withdraw", () => withdraw(toAmount(amount, decimals)))
+              run("withdraw", async () => {
+                const request = await withdraw(toAmount(amount, decimals));
+                setNotice(
+                  request.status === "review"
+                    ? app.portfolio.withdrawReview
+                    : app.portfolio.withdrawQueued,
+                );
+              })
             }
             className={
               live
@@ -240,6 +249,9 @@ export const Portfolio = ({ compact = false }: { compact?: boolean }) => {
 
         {problem ? (
           <p className="font-mono text-xs text-negative">{problem}</p>
+        ) : null}
+        {notice ? (
+          <p className="font-mono text-xs text-dim-ink">{notice}</p>
         ) : null}
       </div>
 

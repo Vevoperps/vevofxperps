@@ -6,6 +6,9 @@ resolver = "2"
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
+# Smallest binary: on Solana the program's rent deposit is paid per byte.
+opt-level = "z"
+strip = true
 
 [profile.release.build-override]
 opt-level = 3

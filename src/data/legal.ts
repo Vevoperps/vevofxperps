@@ -60,7 +60,7 @@ export const terms: LegalPage = {
       blocks: [
         {
           kind: "text",
-          body: `${brand.name} is a venue for perpetual futures on currency rates. You connect a wallet, post margin in ${SETTLEMENT}, and open positions that settle on ${CHAIN}. We never hold your keys and we cannot move your funds.`,
+          body: `${brand.name} is a venue for perpetual futures on currency rates. You connect a wallet, post margin in ${SETTLEMENT}, and open positions against the venue's pool. Deposits and withdrawals are ${SETTLEMENT} transfers on ${CHAIN}; balances and positions are kept in the venue's ledger. We never hold your wallet's keys. While ${SETTLEMENT} is deposited, the venue holds it for you, and it only ever goes back to the wallet it came from.`,
         },
         {
           kind: "list",
@@ -132,7 +132,7 @@ export const terms: LegalPage = {
       blocks: [
         {
           kind: "text",
-          body: "The service is an interface to a set of smart contracts and a price feed. It quotes a mark, accepts a signed order, holds margin, applies funding, and settles positions.",
+          body: "The service runs a trading ledger and a price feed. It quotes a mark, accepts an order from a signed-in wallet, holds margin, applies funding, and settles positions.",
         },
         {
           kind: "list",
@@ -146,8 +146,8 @@ export const terms: LegalPage = {
               body: "there is no order routing and no best-execution duty. Orders fill at the venue's own mark.",
             },
             {
-              term: "Not a custodian",
-              body: `margin sits in a program on ${CHAIN} and moves on your signature.`,
+              term: "Custody",
+              body: `deposited ${SETTLEMENT} is held in the venue's wallet on ${CHAIN} until you withdraw it. Withdrawals go only to the wallet that signed in, and larger ones are checked by hand before they are sent.`,
             },
             {
               term: "Not an exchange of currency",
@@ -196,7 +196,7 @@ export const terms: LegalPage = {
             },
             {
               term: "Technology",
-              body: "smart contracts, price feeds, chains and interfaces can fail. Code that has been reviewed is still code.",
+              body: "servers, price feeds, chains and interfaces can fail. Code that has been reviewed is still code.",
             },
           ],
         },
@@ -287,7 +287,7 @@ export const terms: LegalPage = {
             },
             {
               term: "Exploit a fault",
-              body: "knowingly trading against a bug, a stale price or a broken contract rather than reporting it.",
+              body: "knowingly trading against a bug, a stale price or a pricing error rather than reporting it.",
             },
             {
               term: "Attack the service",
@@ -434,7 +434,7 @@ export const privacy: LegalPage = {
       blocks: [
         {
           kind: "text",
-          body: `Every deposit, withdrawal and settlement is a transaction on ${CHAIN}. It is public, permanent and outside anyone's control, including ours. Anyone who knows your address can read your history.`,
+          body: `Every deposit and withdrawal is a transaction on ${CHAIN}. It is public, permanent and outside anyone's control, including ours. Anyone who knows your address can read those transfers. Trades themselves are kept in the venue's ledger, not on the chain.`,
         },
         {
           kind: "text",

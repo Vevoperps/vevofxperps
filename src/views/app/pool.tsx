@@ -43,7 +43,8 @@ export const AppPool = () => {
   const { pool } = useVenuePool();
 
   const live = venue.live && address !== null;
-  const wallet = snapshot ? money(snapshot.wallet) : "0.00";
+  // Liquidity is provided from the free balance inside the venue.
+  const wallet = snapshot ? money(snapshot.free) : "0.00";
 
   /**
    * What this provider can actually take out right now, in settlement tokens.
