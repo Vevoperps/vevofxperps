@@ -75,8 +75,34 @@ jobs:
           anchor keys sync
           anchor build
 
+      # The program is deployed the way it will be on devnet: through the
+      # upgradeable loader, with this wallet as upgrade authority. `initialize`
+      # checks exactly that, so a genesis-loaded program would not do.
+      - name: Local validator and deploy
+        run: |
+          solana config set --url http://127.0.0.1:8899
+          solana-test-validator --reset --quiet --ledger "$RUNNER_TEMP/ledger" > "$RUNNER_TEMP/validator.log" 2>&1 &
+          for i in $(seq 1 60); do
+            solana cluster-version >/dev/null 2>&1 && break
+            sleep 1
+          done
+          solana cluster-version
+          solana balance
+          solana program deploy target/deploy/vevo.so --program-id target/deploy/vevo-keypair.json
+          # A freshly deployed program becomes callable one slot later.
+          sleep 3
+          solana program show "$(solana-keygen pubkey target/deploy/vevo-keypair.json)"
+
       - name: Test
-        run: anchor test --skip-build --validator legacy
+        env:
+          ANCHOR_PROVIDER_URL: http://127.0.0.1:8899
+          ANCHOR_WALLET: /home/runner/.config/solana/id.json
+          NODE_OPTIONS: --no-experimental-strip-types
+        run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
+
+      - name: Validator log (on failure)
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP/validator.log" || true
 
   # The site against the Solana chain layer: lint, types, and a production
   # build in the preview state (no program configured), as a fresh clone gets.
