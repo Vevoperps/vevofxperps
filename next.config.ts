@@ -23,6 +23,19 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
+  // The hero film. Its file names carry a version (`hero-v1-*`), so a new cut
+  // is a new URL and the old one can be cached for a year without going stale.
+  async headers() {
+    return [
+      {
+        source: "/video/:file*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
+  },
+
   // React Compiler (automatic memoisation) is an opt-in performance win.
   // It requires the `babel-plugin-react-compiler` dev dependency and routes
   // the build through Babel — enable once installed:

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { TypeIn } from "@/components/ui/type-in";
 import { PreviewBanner } from "@/views/app/app-shell";
-import { CandleField } from "@/views/home/candle-field";
+import { HeroVideo } from "@/views/app/hero-video";
 import {
   decimalsFor,
   formatChange,
@@ -49,15 +49,15 @@ export const AppHome = () => {
     <>
       <PreviewBanner />
 
-      {/* The venue's own blue, edge to edge, with the product's marks drifting
-          across it. The rest of the app is a dark terminal; the one screen
-          before you pick a market is the one place the brand gets to be the
-          surface rather than an accent. */}
-      <section className="relative overflow-hidden border-b border-rule-ink bg-accent text-ink-on-ink">
-        <CandleField />
+      {/* The film, edge to edge and taller than a screen's worth of copy needs,
+          darkened 15% so the headline and both buttons read on every shot.
+          The rest of the app is a dark terminal; the one screen before you
+          pick a market is the one place the brand gets a picture. */}
+      <section className="relative flex min-h-[78svh] items-center overflow-hidden border-b border-rule-ink bg-surface-ink text-ink-on-ink sm:min-h-[86svh]">
+        <HeroVideo dim={0.15} />
 
-        <div className="relative mx-auto flex w-full max-w-[64rem] flex-col items-center gap-7 px-5 py-24 text-center sm:px-8 sm:py-32">
-          <span className="label flex items-center gap-2 bg-ink-on-ink/15 px-3 py-2.5 text-ink-on-ink">
+        <div className="relative mx-auto flex w-full max-w-[64rem] flex-col items-center gap-7 px-5 py-24 text-center [text-shadow:0_2px_28px_rgba(0,0,0,0.45)] sm:px-8 sm:py-32">
+          <span className="label flex items-center gap-2 bg-black/35 px-3 py-2.5 text-ink-on-ink [text-shadow:none]">
             <span aria-hidden className="size-2 bg-ink-on-ink" />
             {onchain ? app.home.badgeLive(rows?.length ?? 0) : app.home.badge}
           </span>
@@ -66,11 +66,11 @@ export const AppHome = () => {
             <TypeIn block text={app.home.heading} delay={260} />
           </h1>
 
-          <p className="max-w-[46ch] text-base leading-relaxed text-ink-on-ink/70">
+          <p className="max-w-[46ch] text-base leading-relaxed text-ink-on-ink/85">
             {app.home.lede}
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3 [text-shadow:none]">
             <Link
               href="/app/pairs"
               className="label flex items-center gap-2.5 rounded-full bg-surface-paper py-3.5 pl-4 pr-5 text-accent transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-paper-2"
@@ -83,7 +83,7 @@ export const AppHome = () => {
             </Link>
             <Link
               href="/docs"
-              className="label rounded-full bg-ink-on-ink/15 px-5 py-3.5 text-ink-on-ink transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-ink-on-ink/25"
+              className="label rounded-full bg-black/35 px-5 py-3.5 text-ink-on-ink ring-1 ring-ink-on-ink/25 transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-black/50"
             >
               {app.home.secondary}
             </Link>
