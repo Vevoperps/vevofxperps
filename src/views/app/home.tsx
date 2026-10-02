@@ -13,6 +13,7 @@ import {
   useMarkets,
 } from "@/views/home/use-markets";
 import { app } from "@/data/app";
+import { venue } from "@/lib/chain/venue";
 import { PAIRS } from "@/lib/markets";
 
 /**
@@ -47,7 +48,10 @@ export const AppHome = () => {
 
   return (
     <>
-      <PreviewBanner />
+      {/* On the live venue the film sits straight under the bar. The banner
+          only comes back when the app is a read-only preview, where saying so
+          matters more than the picture. Every other screen still prints it. */}
+      {venue.live ? null : <PreviewBanner />}
 
       {/* The film, edge to edge and taller than a screen's worth of copy needs,
           darkened 15% so the headline and both buttons read on every shot.

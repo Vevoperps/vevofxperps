@@ -91,6 +91,12 @@ export const app = {
         icon: null as string | null,
         install: "https://backpack.app/download",
       },
+      {
+        rdns: "coinbase",
+        name: "Coinbase Wallet",
+        icon: "/assets/wallets/coinbase.webp" as string | null,
+        install: "https://www.coinbase.com/wallet/downloads",
+      },
     ],
   },
 

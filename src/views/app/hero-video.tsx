@@ -15,8 +15,8 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
  *   never gets the film still gets the picture.
  * - **The file is picked for the screen.** No sources are rendered on the
  *   server; in the browser a phone, or a connection asking to save data, gets
- *   the 720p cut and everything else the 1080p one. AV1 first where the
- *   browser can decode it, H.264 everywhere else.
+ *   the 720p cut, a retina or 1440p screen the 1440p one, everything else
+ *   1080p.
  * - **It only plays while it is seen.** Scrolled away or in a background tab
  *   it pauses, so the decoder is not burning a core under the rates table.
  * - **Reduced motion gets the still.** The film is never fetched at all.
@@ -26,25 +26,36 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
  * composited for free.
  */
 
-const POSTER = "/video/hero-v1-poster.webp";
+const POSTER = "/video/hero-v2-poster.webp";
 
 /**
- * Two cuts of the same 57-second loop, 24 fps, no audio. The AV1 type names
- * each file's real level, so a browser that cannot decode it skips straight
- * to the H.264 file instead of fetching one it will fail on.
+ * Three cuts of the same 57-second loop, 30 fps, no audio. Each source names
+ * its codec and level, so a browser that cannot decode one skips to the next
+ * without fetching it: AV1 (Chrome, Edge, Firefox, newer Safari), then HEVC
+ * (Safari on any recent Apple device), then H.264 (everything else).
  */
+interface Source {
+  src: string;
+  type: string;
+}
+
 const CUTS = {
-  sd: {
-    av1: "/video/hero-v1-720.webm",
-    av1Type: 'video/webm; codecs="av01.0.05M.08"',
-    h264: "/video/hero-v1-720.mp4",
-  },
-  hd: {
-    av1: "/video/hero-v1-1080.webm",
-    av1Type: 'video/webm; codecs="av01.0.08M.08"',
-    h264: "/video/hero-v1-1080.mp4",
-  },
-} as const;
+  sd: [
+    { src: "/video/hero-v2-720.webm", type: 'video/webm; codecs="av01.0.05M.08"' },
+    { src: "/video/hero-v2-720-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
+    { src: "/video/hero-v2-720.mp4", type: "video/mp4" },
+  ],
+  hd: [
+    { src: "/video/hero-v2-1080.webm", type: 'video/webm; codecs="av01.0.08M.08"' },
+    { src: "/video/hero-v2-1080-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
+    { src: "/video/hero-v2-1080.mp4", type: "video/mp4" },
+  ],
+  qhd: [
+    { src: "/video/hero-v2-1440.webm", type: 'video/webm; codecs="av01.0.12M.08"' },
+    { src: "/video/hero-v2-1080-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
+    { src: "/video/hero-v2-1080.mp4", type: "video/mp4" },
+  ],
+} satisfies Record<string, Source[]>;
 
 type Cut = keyof typeof CUTS;
 
@@ -52,11 +63,17 @@ interface NetworkInformation {
   saveData?: boolean;
 }
 
+/**
+ * Sized by the pixels the film will actually cover: a retina laptop or a
+ * 1440p monitor gets the sharper cut, a phone the light one.
+ */
 const pickCut = (): Cut | null => {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
   const connection = (navigator as Navigator & { connection?: NetworkInformation }).connection;
   if (connection?.saveData) return "sd";
-  return window.matchMedia("(min-width: 768px)").matches ? "hd" : "sd";
+  if (!window.matchMedia("(min-width: 768px)").matches) return "sd";
+  const pixels = window.innerWidth * (window.devicePixelRatio || 1);
+  return pixels > 2200 ? "qhd" : "hd";
 };
 
 /** The choice is made once per page load; nothing needs to re-trigger it. */
@@ -134,13 +151,19 @@ export const HeroVideo = ({ dim = 0.15 }: { dim?: number }) => {
           disableRemotePlayback
           className="absolute inset-0 h-full w-full object-cover"
         >
-          <source src={CUTS[cut].av1} type={CUTS[cut].av1Type} />
-          <source src={CUTS[cut].h264} type="video/mp4" />
+          {CUTS[cut].map((source) => (
+            <source key={source.src} src={source.src} type={source.type} />
+          ))}
         </video>
       ) : null}
 
-      {/* The darkening, so the copy on top stays readable on the bright shots. */}
+      {/* The darkening, so the copy on top stays readable on the bright shots:
+          a flat veil, plus a soft fall-off at the top (under the bar) and at
+          the bottom, where the film fades into the page instead of ending on
+          a hard edge above the rates table. */}
       <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />
+      <div className="absolute inset-x-0 top-0 h-32 bg-linear-to-b from-black/35 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-linear-to-t from-surface-ink via-surface-ink/40 to-transparent" />
     </div>
   );
 };

@@ -42,6 +42,18 @@ export const WalletConnect = () => {
   const ensureChain = useWallet((state) => state.ensureChain);
 
   const [open, setOpen] = useState(false);
+
+  // The Solana wallets worth naming come first, in the order they are listed
+  // in `app.wallet.known`; anything else that speaks Solana follows.
+  const rank = (name: string): number => {
+    const index = app.wallet.known.findIndex((known) =>
+      name.toLowerCase().includes(known.rdns),
+    );
+    return index === -1 ? app.wallet.known.length : index;
+  };
+  const installed = [...wallets].sort(
+    (a, b) => rank(a.info.name) - rank(b.info.name),
+  );
   const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => discoverWallets(), []);
@@ -124,7 +136,7 @@ export const WalletConnect = () => {
           </p>
 
           <ul className="flex flex-col">
-            {wallets.map((wallet) => (
+            {installed.map((wallet) => (
               <li key={wallet.info.uuid}>
                 <button
                   type="button"
