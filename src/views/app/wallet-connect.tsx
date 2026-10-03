@@ -40,8 +40,11 @@ export const WalletConnect = () => {
   const connect = useWallet((state) => state.connect);
   const disconnect = useWallet((state) => state.disconnect);
   const ensureChain = useWallet((state) => state.ensureChain);
+  const accounts = useWallet((state) => state.accounts);
+  const selectAccount = useWallet((state) => state.selectAccount);
 
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // The Solana wallets worth naming come first, in the order they are listed
   // in `app.wallet.known`; anything else that speaks Solana follows.
@@ -101,16 +104,109 @@ export const WalletConnect = () => {
       );
     }
 
+    const copy = (): void => {
+      void navigator.clipboard
+        ?.writeText(address)
+        .then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1400);
+        })
+        .catch(() => undefined);
+    };
+
+    // The chip opens a menu rather than disconnecting on click: changing to
+    // another wallet or account is a choice, not something to stumble into.
     return (
-      <button
-        type="button"
-        onClick={disconnect}
-        title={app.wallet.disconnect}
-        className="label flex items-center gap-2 border border-accent px-3 py-2.5 text-accent transition-colors duration-[var(--duration-fast)] ease-entrance hover:border-negative hover:text-negative"
-      >
-        <span aria-hidden className="size-2 bg-accent" />
-        {short(address)}
-      </button>
+      <div className="relative" ref={sheetRef}>
+        <button
+          type="button"
+          onClick={() => setOpen((was) => !was)}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          className="label flex items-center gap-2 border border-accent px-3 py-2.5 text-accent transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-accent hover:text-ink-on-ink"
+        >
+          <span aria-hidden className="size-2 bg-current" />
+          {short(address)}
+        </button>
+
+        {open ? (
+          <div
+            role="menu"
+            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[19rem] border border-rule-ink bg-surface-ink shadow-[0_1.5rem_3rem_-1rem_var(--shadow-paper)]"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-rule-ink px-4 py-3">
+              <span className="label text-dim-ink">{app.wallet.connectedAs}</span>
+              <button
+                type="button"
+                onClick={copy}
+                className="label text-accent transition-colors duration-[var(--duration-fast)] ease-entrance hover:text-ink-on-ink"
+              >
+                {copied ? app.wallet.copied : app.wallet.copy}
+              </button>
+            </div>
+
+            <p className="border-b border-rule-ink px-4 py-3 font-mono text-xs break-all text-ink-on-ink">
+              {address}
+            </p>
+
+            {accounts.length > 1 ? (
+              <div className="border-b border-rule-ink">
+                <p className="label px-4 pt-3 text-dim-ink">{app.wallet.accounts}</p>
+                <ul className="flex flex-col py-1.5">
+                  {accounts.map((account) => (
+                    <li key={account}>
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={account === address}
+                        onClick={() => selectAccount(account)}
+                        className={`flex w-full items-center gap-2 px-4 py-2 text-left font-mono text-xs transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-ink-2 ${
+                          account === address ? "text-accent" : "text-dim-ink"
+                        }`}
+                      >
+                        <span
+                          aria-hidden
+                          className={`size-2 ${account === address ? "bg-accent" : "border border-rule-ink"}`}
+                        />
+                        {short(account)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  disconnect();
+                  setOpen(true);
+                }}
+                className="label border-b border-rule-ink/70 px-4 py-3.5 text-left text-ink-on-ink transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-ink-2 hover:text-accent"
+              >
+                {app.wallet.change}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  disconnect();
+                  setOpen(false);
+                }}
+                className="label border-b border-rule-ink/70 px-4 py-3.5 text-left text-dim-ink transition-colors duration-[var(--duration-fast)] ease-entrance hover:bg-surface-ink-2 hover:text-negative"
+              >
+                {app.wallet.disconnect}
+              </button>
+            </div>
+
+            <p className="px-4 py-3 text-xs leading-relaxed text-dim-ink">
+              {app.wallet.switchHint}
+            </p>
+          </div>
+        ) : null}
+      </div>
     );
   }
 

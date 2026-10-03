@@ -56,6 +56,14 @@ export const app = {
     install: "Install",
     refused: "the wallet refused the connection. nothing was signed.",
     disconnect: "Disconnect",
+    /** The menu under the connected chip. */
+    connectedAs: "Connected",
+    copy: "Copy address",
+    copied: "Copied",
+    accounts: "Accounts shared by the wallet",
+    change: "Change wallet",
+    switchHint:
+      "phantom and solflare connect the account selected inside the wallet. to trade from another one, switch it there: the venue follows. or change wallet to pick a different app.",
     wrongChain: (chain: string) => `Switch to ${chain}`,
     chainRefused: (chain: string) =>
       `the wallet would not switch to ${chain.toLowerCase()}. add it manually and try again.`,
@@ -90,12 +98,6 @@ export const app = {
         name: "Backpack",
         icon: null as string | null,
         install: "https://backpack.app/download",
-      },
-      {
-        rdns: "coinbase",
-        name: "Coinbase Wallet",
-        icon: "/assets/wallets/coinbase.webp" as string | null,
-        install: "https://www.coinbase.com/wallet/downloads",
       },
     ],
   },

@@ -38,12 +38,16 @@ export interface Announced {
 interface WalletState {
   wallets: Announced[];
   address: string | null;
+  /** Every account the wallet shared with the site; usually just one. */
+  accounts: string[];
   chainId: number | null;
   connecting: string | null;
   error: string | null;
 
   connect: (wallet: Announced) => Promise<void>;
   disconnect: () => void;
+  /** Switches between the accounts the wallet shared, without a prompt. */
+  selectAccount: (address: string) => void;
   ensureChain: () => Promise<boolean>;
   setError: (message: string | null) => void;
 }
@@ -76,7 +80,21 @@ interface SignFeature {
 const feature = <T>(wallet: Wallet, name: string): T | null =>
   ((wallet.features as Record<string, unknown>)[name] as T | undefined) ?? null;
 
+/**
+ * Solana-native wallets only. Multichain EVM wallets (MetaMask, Rabby,
+ * Coinbase, OKX...) now also register for Solana, but the venue is a Solana
+ * venue and the picker lists the wallets its traders actually use. Matched
+ * against the name each wallet announces.
+ */
+const SOLANA_NATIVE = ["phantom", "solflare", "backpack", "jupiter", "glow", "magic eden"];
+
+const isSolanaNative = (wallet: Wallet): boolean => {
+  const name = wallet.name.toLowerCase();
+  return SOLANA_NATIVE.some((known) => name.includes(known));
+};
+
 const isSolanaWallet = (wallet: Wallet): boolean =>
+  isSolanaNative(wallet) &&
   wallet.chains.some((chain) => chain.startsWith("solana:")) &&
   feature(wallet, "standard:connect") !== null &&
   (feature(wallet, "solana:signAndSendTransaction") !== null || feature(wallet, "solana:signTransaction") !== null);
@@ -89,7 +107,7 @@ const announce = (wallet: Wallet): Announced => ({
 // ---------------------------------------------------------------- the store
 
 /** The connected wallet and account. Live objects, deliberately not state. */
-let connected: { wallet: Wallet; account: WalletAccount } | null = null;
+let connected: { wallet: Wallet; account: WalletAccount; accounts: readonly WalletAccount[] } | null = null;
 let unsubscribe: (() => void) | null = null;
 
 const REMEMBERED = "vevo:wallet";
@@ -113,25 +131,39 @@ const remembered = (): string | null => {
 
 type Setter = (partial: Partial<WalletState>) => void;
 
-const attach = (wallet: Wallet, account: WalletAccount, set: Setter): void => {
+const attach = (
+  wallet: Wallet,
+  account: WalletAccount,
+  accounts: readonly WalletAccount[],
+  set: Setter,
+): void => {
   detach();
-  connected = { wallet, account };
+  connected = { wallet, account, accounts };
 
+  // Switching accounts inside the wallet (Phantom's account list, say)
+  // arrives here, and the venue follows it without a reconnect.
   const events = feature<EventsFeature>(wallet, "standard:events");
   unsubscribe =
-    events?.on("change", ({ accounts }) => {
-      if (!accounts) return;
-      const next = accounts[0];
+    events?.on("change", ({ accounts: shared }) => {
+      if (!shared) return;
+      const next = shared[0];
       if (!next) {
         detach();
-        set({ address: null, chainId: null });
+        set({ address: null, chainId: null, accounts: [] });
         return;
       }
-      if (connected) connected.account = next;
-      set({ address: next.address });
+      if (connected) {
+        connected.accounts = shared;
+        connected.account = next;
+      }
+      set({ address: next.address, accounts: shared.map((each) => each.address) });
     }) ?? null;
 
-  set({ address: account.address, chainId: venue.chainId });
+  set({
+    address: account.address,
+    accounts: accounts.map((each) => each.address),
+    chainId: venue.chainId,
+  });
 };
 
 const detach = (): void => {
@@ -143,6 +175,7 @@ const detach = (): void => {
 export const useWallet = create<WalletState>((set) => ({
   wallets: [],
   address: null,
+  accounts: [],
   chainId: null,
   connecting: null,
   error: null,
@@ -160,7 +193,7 @@ export const useWallet = create<WalletState>((set) => ({
         return;
       }
 
-      attach(announced.provider, account, set);
+      attach(announced.provider, account, accounts, set);
       remember(announced.info.name);
       set({ connecting: null });
     } catch {
@@ -172,12 +205,19 @@ export const useWallet = create<WalletState>((set) => ({
     const wallet = connected?.wallet;
     detach();
     remember(null);
-    set({ address: null, chainId: null, error: null });
+    set({ address: null, accounts: [], chainId: null, error: null });
     if (wallet) {
       void feature<DisconnectFeature>(wallet, "standard:disconnect")
         ?.disconnect()
         .catch(() => undefined);
     }
+  },
+
+  selectAccount: (address) => {
+    const next = connected?.accounts.find((each) => each.address === address);
+    if (!connected || !next) return;
+    connected.account = next;
+    set({ address: next.address });
   },
 
   ensureChain: async () => true,
@@ -205,7 +245,9 @@ export const discoverWallets = (): (() => void) => {
         const connect = feature<ConnectFeature>(match, "standard:connect");
         const result = await connect?.connect({ silent: true });
         const account = result?.accounts[0];
-        if (account && !connected) attach(match, account, (partial) => useWallet.setState(partial));
+        if (account && !connected) {
+          attach(match, account, result?.accounts ?? [account], (partial) => useWallet.setState(partial));
+        }
       } catch {
         // Not previously approved: the visitor will click.
       }
