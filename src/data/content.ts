@@ -179,6 +179,12 @@ export const install = {
    */
   video: {
     youtubeId: "zShDnW0Cpyk" as string | null,
+    /**
+     * Bump after changing the thumbnail on YouTube. The thumbnail URL is
+     * cached for hours by YouTube's CDN and the browser; a new version makes
+     * it a new URL, so the fresh frame shows straight away.
+     */
+    thumbVersion: "2",
     title: "Product demo",
     /** Printed on the frame's title bar. */
     file: `${brand.name} / demo.mp4`,

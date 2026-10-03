@@ -28,10 +28,11 @@ const { video } = install;
 export const VideoFrame = () => {
   const [playing, setPlaying] = useState(false);
   const id = video.youtubeId;
+  const bust = `?v=${video.thumbVersion}`;
 
   // maxres isn't generated for every upload; fall back to hqdefault on error.
   const [thumb, setThumb] = useState(
-    id ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg` : null,
+    id ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg${bust}` : null,
   );
 
   return (
@@ -70,7 +71,7 @@ export const VideoFrame = () => {
                 alt={video.title}
                 loading="lazy"
                 onError={() =>
-                  setThumb(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`)
+                  setThumb(`https://i.ytimg.com/vi/${id}/hqdefault.jpg${bust}`)
                 }
                 className="absolute inset-0 size-full object-cover"
               />
