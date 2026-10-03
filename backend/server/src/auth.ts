@@ -75,13 +75,26 @@ export const issueNonce = async (address: string, domain: string): Promise<strin
   return signInMessage(domain, address, nonce, issuedAt);
 };
 
+/**
+ * A 64-byte ed25519 signature, sent as base58 (what the site sends) or
+ * base64. The two cannot be told apart by length alone: a base58 signature is
+ * 86 to 88 characters and uses only characters base64 also uses. So each
+ * decoding is tried, and the one that yields exactly 64 bytes wins.
+ */
 const decodeSignature = (value: string): Uint8Array | null => {
-  try {
-    const bytes = /^[0-9a-zA-Z+/=]+$/.test(value) && value.length === 88 ? Buffer.from(value, "base64") : bs58.decode(value);
-    return bytes.length === 64 ? new Uint8Array(bytes) : null;
-  } catch {
-    return null;
+  const attempts: (() => Uint8Array)[] = [
+    () => bs58.decode(value),
+    () => new Uint8Array(Buffer.from(value, "base64")),
+  ];
+  for (const attempt of attempts) {
+    try {
+      const bytes = attempt();
+      if (bytes.length === 64) return bytes;
+    } catch {
+      // Not this encoding; try the next.
+    }
   }
+  return null;
 };
 
 /** Verifies a signed sign-in message; returns a session token or null. */
