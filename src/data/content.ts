@@ -178,13 +178,13 @@ export const install = {
    * labelled placeholder rather than an embed of nothing.
    */
   video: {
-    youtubeId: "9-Qa4iF3vGc" as string | null,
+    youtubeId: "zShDnW0Cpyk" as string | null,
     title: "Product demo",
     /** Printed on the frame's title bar. */
     file: `${brand.name} / demo.mp4`,
     /** Shown in place of the video while there is no id. */
     placeholder: "Demo recording lands here",
-    duration: "03:14",
+    duration: "03:24",
     play: "Play",
   },
   note: "a full ticket end to end: connect, deposit, open, close. no cuts.",

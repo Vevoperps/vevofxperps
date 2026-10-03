@@ -91,13 +91,22 @@ const encodeBase58 = (bytes: Uint8Array): string => {
   return out;
 };
 
+const encodeBase64 = (bytes: Uint8Array): string => {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+};
+
 const signIn = async (address: string): Promise<string> => {
   const { message } = await call<{ message: string }>("/v1/auth/nonce", { address });
   const signature = await signMessage(message);
   const { token } = await call<{ token: string }>("/v1/auth/verify", {
     address,
     message,
-    signature: encodeBase58(signature),
+    // Base64, not base58: a 64-byte signature in base64 is always 88
+    // characters ending in "==", which no server version can mistake for
+    // base58 (a base58 signature can also be 88 characters long).
+    signature: encodeBase64(signature),
   });
   memory.set(address, token);
   storeToken(address, token);
