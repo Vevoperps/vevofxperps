@@ -19,9 +19,42 @@ import { pool } from "./db.js";
 
 const NONCE_TTL_SECONDS = 10 * 60;
 
-export const signInMessage = (address: string, nonce: string, issuedAt: Date): string =>
+/** Whether a browser origin may call the API (exact, or `https://*.domain`). */
+export const originAllowed = (origin: string): boolean =>
+  config.ALLOWED_ORIGINS.some((allowed) => {
+    if (allowed === origin) return true;
+    const wildcard = /^https:\/\/\*\.(.+)$/.exec(allowed);
+    if (!wildcard || !origin.startsWith("https://")) return false;
+    const host = origin.slice("https://".length);
+    return host.endsWith(`.${wildcard[1]}`) && !host.includes("/");
+  });
+
+/**
+ * The domain named in the sign-in message.
+ *
+ * Wallets (Phantom first) read the first line of a sign-in message and refuse
+ * to show it when the domain is not the page asking: it is their phishing
+ * guard. So the message names the host the request actually came from
+ * (vevoperps.com, www., a preview, localhost), but only when that origin is
+ * one the API already allows; anything else falls back to SIGNIN_DOMAIN.
+ */
+export const signInDomain = (origin: string | undefined): string => {
+  if (!origin || !originAllowed(origin)) return config.SIGNIN_DOMAIN;
+  try {
+    return new URL(origin).host;
+  } catch {
+    return config.SIGNIN_DOMAIN;
+  }
+};
+
+const domainAllowed = (domain: string): boolean =>
+  domain === config.SIGNIN_DOMAIN || originAllowed(`https://${domain}`) || originAllowed(`http://${domain}`);
+
+const HEADLINE = " wants you to sign in with your Solana account:";
+
+export const signInMessage = (domain: string, address: string, nonce: string, issuedAt: Date): string =>
   [
-    `${config.SIGNIN_DOMAIN} wants you to sign in with your Solana account:`,
+    `${domain}${HEADLINE}`,
     address,
     "",
     "Sign in to trade. This request does not trigger a transaction or cost a fee.",
@@ -30,7 +63,7 @@ export const signInMessage = (address: string, nonce: string, issuedAt: Date): s
     `Issued At: ${issuedAt.toISOString()}`,
   ].join("\n");
 
-export const issueNonce = async (address: string): Promise<string> => {
+export const issueNonce = async (address: string, domain: string): Promise<string> => {
   const nonce = randomBytes(16).toString("hex");
   const issuedAt = new Date();
   await pool.query("DELETE FROM nonces WHERE expires_at < now()");
@@ -39,7 +72,7 @@ export const issueNonce = async (address: string): Promise<string> => {
     address,
     NONCE_TTL_SECONDS,
   ]);
-  return signInMessage(address, nonce, issuedAt);
+  return signInMessage(domain, address, nonce, issuedAt);
 };
 
 const decodeSignature = (value: string): Uint8Array | null => {
@@ -55,7 +88,9 @@ const decodeSignature = (value: string): Uint8Array | null => {
 export const verifySignIn = async (address: string, message: string, signature: string): Promise<string | null> => {
   const nonce = /\nNonce: ([0-9a-f]{32})\n/.exec(message)?.[1];
   if (!nonce) return null;
-  if (!message.startsWith(`${config.SIGNIN_DOMAIN} wants you to sign in with your Solana account:\n${address}\n`)) return null;
+  const [headline, signer] = message.split("\n");
+  if (!headline?.endsWith(HEADLINE) || signer !== address) return null;
+  if (!domainAllowed(headline.slice(0, -HEADLINE.length))) return null;
 
   const sig = decodeSignature(signature);
   if (!sig) return null;

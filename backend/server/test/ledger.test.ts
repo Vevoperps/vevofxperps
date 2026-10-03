@@ -132,7 +132,7 @@ describe("ledger (postgres)", { skip: !DATABASE_URL }, () => {
   it("signs in only with the wallet's own signature, and only once per nonce", async () => {
     const wallet = Keypair.generate();
     const who = wallet.publicKey.toBase58();
-    const message = await auth.issueNonce(who);
+    const message = await auth.issueNonce(who, "vevoperps.com");
     const signature = bs58.encode(nacl.sign.detached(new TextEncoder().encode(message), wallet.secretKey));
 
     const stranger = Keypair.generate();

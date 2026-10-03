@@ -4,7 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
-import { issueNonce, verifySignIn, verifyToken } from "./auth.js";
+import { issueNonce, originAllowed, signInDomain, verifySignIn, verifyToken } from "./auth.js";
 import { config } from "./config.js";
 import { pool as db, read } from "./db.js";
 import { VevoError } from "./engine.js";
@@ -163,9 +163,9 @@ route("GET", "/v1/account/:address", "none", async ({ params }) => {
 
 // ---------------------------------------------------------------------- auth
 
-route("POST", "/v1/auth/nonce", "none", async ({ body }) => {
+route("POST", "/v1/auth/nonce", "none", async ({ req, body }) => {
   const { address: who } = parse(z.object({ address }), body);
-  return { message: await issueNonce(who) };
+  return { message: await issueNonce(who, signInDomain(req.headers.origin)) };
 });
 
 route("POST", "/v1/auth/verify", "none", async ({ body }) => {
@@ -358,15 +358,6 @@ const send = (res: ServerResponse, status: number, payload: unknown, origin: str
  * Sessions are bearer tokens, not cookies, so allowing an origin lets it read
  * public responses; it gives it no way to act as a signed-in user.
  */
-const originAllowed = (origin: string): boolean =>
-  config.ALLOWED_ORIGINS.some((allowed) => {
-    if (allowed === origin) return true;
-    const wildcard = /^https:\/\/\*\.(.+)$/.exec(allowed);
-    if (!wildcard || !origin.startsWith("https://")) return false;
-    const host = origin.slice("https://".length);
-    return host.endsWith(`.${wildcard[1]}`) && !host.includes("/");
-  });
-
 export const startHttp = (): void => {
   const server = createServer(async (req, res) => {
     const requestOrigin = req.headers.origin ?? null;
