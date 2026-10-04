@@ -32,8 +32,8 @@ export interface SectionHead {
  */
 export const nav = [
   { id: "how", label: "How it works" },
+  { id: "install", label: "Demo" },
   { id: "markets", label: "Markets" },
-  { id: "coverage", label: "Countries" },
   { id: "fees", label: "Fees" },
   { id: "faq", label: "FAQ" },
 ] as const;
