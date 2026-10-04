@@ -26,7 +26,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
  * composited for free.
  */
 
-const POSTER = "/video/hero-v2-poster.webp";
+const POSTER = "/video/hero-v3-poster.webp";
 
 /**
  * Three cuts of the same 57-second loop, 30 fps, no audio. Each source names
@@ -41,19 +41,19 @@ interface Source {
 
 const CUTS = {
   sd: [
-    { src: "/video/hero-v2-720.webm", type: 'video/webm; codecs="av01.0.05M.08"' },
-    { src: "/video/hero-v2-720-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
-    { src: "/video/hero-v2-720.mp4", type: "video/mp4" },
+    { src: "/video/hero-v3-720.webm", type: 'video/webm; codecs="av01.0.05M.08"' },
+    { src: "/video/hero-v3-720-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
+    { src: "/video/hero-v3-720.mp4", type: "video/mp4" },
   ],
   hd: [
-    { src: "/video/hero-v2-1080.webm", type: 'video/webm; codecs="av01.0.08M.08"' },
-    { src: "/video/hero-v2-1080-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
-    { src: "/video/hero-v2-1080.mp4", type: "video/mp4" },
+    { src: "/video/hero-v3-1080.webm", type: 'video/webm; codecs="av01.0.08M.08"' },
+    { src: "/video/hero-v3-1080-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
+    { src: "/video/hero-v3-1080.mp4", type: "video/mp4" },
   ],
   qhd: [
-    { src: "/video/hero-v2-1440.webm", type: 'video/webm; codecs="av01.0.12M.08"' },
-    { src: "/video/hero-v2-1080-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
-    { src: "/video/hero-v2-1080.mp4", type: "video/mp4" },
+    { src: "/video/hero-v3-1440.webm", type: 'video/webm; codecs="av01.0.12M.08"' },
+    { src: "/video/hero-v3-1080-hevc.mp4", type: 'video/mp4; codecs="hvc1"' },
+    { src: "/video/hero-v3-1080.mp4", type: "video/mp4" },
   ],
 } satisfies Record<string, Source[]>;
 
