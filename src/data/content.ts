@@ -178,19 +178,19 @@ export const install = {
    * labelled placeholder rather than an embed of nothing.
    */
   video: {
-    youtubeId: "zShDnW0Cpyk" as string | null,
+    youtubeId: "61E-hePYh-U" as string | null,
     /**
      * Bump after changing the thumbnail on YouTube. The thumbnail URL is
      * cached for hours by YouTube's CDN and the browser; a new version makes
      * it a new URL, so the fresh frame shows straight away.
      */
-    thumbVersion: "2",
+    thumbVersion: "3",
     title: "Product demo",
     /** Printed on the frame's title bar. */
     file: `${brand.name} / demo.mp4`,
     /** Shown in place of the video while there is no id. */
     placeholder: "Demo recording lands here",
-    duration: "03:24",
+    duration: "03:17",
     play: "Play",
   },
   note: "a full ticket end to end: connect, deposit, open, close. no cuts.",
