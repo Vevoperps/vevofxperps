@@ -38,8 +38,16 @@ export const gatePassword = (): string | null => {
   return value ? value : DEFAULT_PASSWORD;
 };
 
-/** Always true while a default exists. Kept so callers read the same way. */
-export const gateEnabled = (): boolean => gatePassword() !== null;
+/**
+ * Whether the site-wide curtain is up.
+ *
+ * **Off by default since launch.** The site is public; only the $VEVO page
+ * keeps its own lock (below), and that lock still reads its code from
+ * `gatePassword()`, which is why the password stays defined here. To put the
+ * whole-site curtain back without a code change, set `SITE_GATE=on` in Vercel.
+ */
+export const gateEnabled = (): boolean =>
+  process.env.SITE_GATE?.trim().toLowerCase() === "on";
 
 /**
  * FNV-1a, 32-bit.
