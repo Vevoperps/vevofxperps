@@ -30,10 +30,17 @@ export const VideoFrame = () => {
   const id = video.youtubeId;
   const bust = `?v=${video.thumbVersion}`;
 
-  // maxres isn't generated for every upload; fall back to hqdefault on error.
-  const [thumb, setThumb] = useState(
-    id ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg${bust}` : null,
-  );
+  /**
+   * Thumbnail sizes, best first. `maxresdefault` and `sddefault` are not made
+   * for every upload (and not straight away for a fresh one); when missing,
+   * YouTube answers with a 120x90 grey placeholder rather than an error, so
+   * the image "loads". A width of 120 or less means placeholder: try the next
+   * size. `hqdefault` exists for every video.
+   */
+  const sizes = ["maxresdefault", "sddefault", "hqdefault"] as const;
+  const [size, setSize] = useState(0);
+  const thumb = id ? `https://i.ytimg.com/vi/${id}/${sizes[size]}.jpg${bust}` : null;
+  const nextSize = (): void => setSize((was) => Math.min(was + 1, sizes.length - 1));
 
   return (
     <figure className="w-full border border-rule-ink bg-surface-ink shadow-[0_2rem_4rem_-2rem_rgba(0,0,0,0.55)]">
@@ -70,9 +77,10 @@ export const VideoFrame = () => {
                 src={thumb}
                 alt={video.title}
                 loading="lazy"
-                onError={() =>
-                  setThumb(`https://i.ytimg.com/vi/${id}/hqdefault.jpg${bust}`)
-                }
+                onLoad={(event) => {
+                  if (event.currentTarget.naturalWidth <= 120) nextSize();
+                }}
+                onError={nextSize}
                 className="absolute inset-0 size-full object-cover"
               />
             ) : null}

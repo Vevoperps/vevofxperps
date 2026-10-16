@@ -39,6 +39,11 @@ export const brand = {
     app: "/app" as string | null,
     /** Full profile URL. The @handle for meta tags is derived from it in `site.ts`. */
     x: "https://x.com/Vevofxperps" as string | null,
+    /**
+     * The token's pump.fun page. Null before launch; when only the contract
+     * address is set, the $VEVO page builds the pump.fun link from it.
+     */
+    pumpfun: null as string | null,
     telegram: null as string | null,
     discord: null as string | null,
     /**

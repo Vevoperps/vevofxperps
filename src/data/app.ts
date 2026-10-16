@@ -366,105 +366,91 @@ export const app = {
    */
   vevo: {
     title: `$${brand.token.ticker}`,
-    heading: ["One venue,", "one token."],
-    lede: `${brand.token.ticker} is the token of the venue. it is not what positions settle in: margin and payouts stay in ${brand.chain.settlement}, and that is deliberate.`,
-    tba: "tba",
 
-    facts: {
-      title: "The token",
-      ticker: "Ticker",
-      contract: "Token address",
-      contractSoon: "not minted yet",
-      chain: "Chain",
-      supply: "Total supply",
-      /** Filled in when the token exists. */
-      supplyValue: null as string | null,
+    hero: {
+      eyebrow: "The token of the venue",
+      headline: "One venue. One token.",
+      lede: `vevo is already live: 64 currencies against the dollar, up to 25x, open 24/7, one ${brand.chain.settlement} balance on ${brand.chain.name}. $${brand.token.ticker} is the token behind it.`,
+      status: { soon: "Launching on pump.fun", live: "Live on pump.fun" },
+    },
+
+    ca: {
+      label: "Contract address",
+      soon: "drops here at launch",
       copy: "Copy",
       copied: "Copied",
-      explorer: "View on explorer",
+      trust: `Only trust the address on this page and on @Vevofxperps. Anything else in the replies is not $${brand.token.ticker}.`,
     },
 
-    distribution: {
-      title: "Distribution",
-      note: "published here the day it is fixed, and not before.",
-      /**
-       * `share` is a percentage. Every row stays null until the split is
-       * decided; the screen prints the label and `tba` beside it.
-       */
+    actions: {
+      buy: "Buy on pump.fun",
+      chart: "Chart",
+      explorer: "Solscan",
+      soon: "at launch",
+    },
+
+    /** The token card. Pump.fun mints a fixed one billion supply. */
+    card: {
+      title: "Token",
       rows: [
-        { label: "Liquidity", share: null as number | null },
-        { label: "Community", share: null as number | null },
-        { label: "Treasury", share: null as number | null },
-        { label: "Team", share: null as number | null },
+        { label: "Ticker", value: `$${brand.token.ticker}` },
+        { label: "Chain", value: brand.chain.name },
+        { label: "Supply", value: "1,000,000,000" },
+        { label: "Launch", value: "Fair launch, pump.fun" },
       ],
     },
 
-    staking: {
-      title: "Stake for a share of fees",
-      lede: `every trade pays 0.05% on the way in and 0.05% on the way out. a share of that goes to staked ${brand.token.ticker}, claimable in ${brand.chain.settlement}.`,
-      stakeLabel: `Amount, ${brand.token.ticker}`,
-      stake: "Stake",
-      unstake: "Unstake",
-      claim: "Claim rewards",
-      staked: "Your stake",
-      rewards: "Claimable",
-      totalStaked: "Total staked",
-      /**
-       * No vault is deployed, so the buttons say so instead of failing on a
-       * signature. The moment the address is configured these become live.
-       */
-      soon: "Staking opens when the vault is deployed",
-      why: "the vault follows the synthetix staking pattern: stake, accrue, claim, withdraw. no lockup.",
-    },
-
-    tiers: {
-      title: "Trade cheaper as you stake",
-      lede: "a larger stake lowers what a trade costs you. the thresholds are set before launch and printed here once they are.",
-      columns: { tier: "Tier", stake: "Stake", fee: "Fee per side" },
-      rows: [
-        { tier: "Base", stake: null as string | null, fee: "0.05%" },
-        { tier: "Tier 1", stake: null as string | null, fee: null as string | null },
-        { tier: "Tier 2", stake: null as string | null, fee: null as string | null },
-        { tier: "Tier 3", stake: null as string | null, fee: null as string | null },
+    /** What the token sits on top of: facts that are live today. */
+    venue: {
+      title: "Already running",
+      lede: "the token launches into a venue that works, not a roadmap.",
+      stats: [
+        { value: "64", label: "currencies against the dollar" },
+        { value: "25x", label: "max leverage on the majors" },
+        { value: "24/7", label: "open, weekends included" },
+        { value: "0.05%", label: "fee per side, every fee to the pool" },
       ],
-      soon: "Tiers open with the staking vault",
-    },
-
-    /**
-     * Where a trade's fee ends up, as three steps.
-     *
-     * The value of the token is one sentence long and every holder asks it, so
-     * it is drawn rather than written: a fill pays, the pool keeps its share,
-     * the stakers take theirs. Three blocks beat three paragraphs.
-     */
-    flow: {
-      title: "Where a fee goes",
-      steps: [
-        {
-          n: "01",
-          label: "A fill",
-          body: "every open and every close pays 0.05% of notional.",
-        },
-        {
-          n: "02",
-          label: "The pool",
-          body: "the side that took the other end of the trade keeps its share.",
-        },
-        {
-          n: "03",
-          label: "Stakers",
-          body: `the rest accrues to staked ${brand.token.ticker}, claimable in ${brand.chain.settlement}.`,
-        },
-      ],
-      split: "the exact split is set before launch and published here.",
+      cta: "Open the app",
     },
 
     honesty: {
-      title: `Why margin is not ${brand.token.ticker}`,
-      body: `a position is a bet on a currency, not on us. if margin were held in ${brand.token.ticker}, a trader could read the yen correctly and still be liquidated because the token moved against them overnight. so collateral and payouts stay in ${brand.chain.settlement}, and ${brand.token.ticker} earns from the venue instead of standing inside it.`,
+      title: `Why margin is not $${brand.token.ticker}`,
+      body: `a position is a bet on a currency, not on us. if margin were held in ${brand.token.ticker}, a trader could read the yen correctly and still be liquidated because the token moved against them overnight. so collateral and payouts stay in ${brand.chain.settlement}, and ${brand.token.ticker} is built to earn from the venue instead of standing inside it.`,
     },
 
-    connect: "Connect a wallet to see your stake.",
+    /**
+     * Planned, and said to be planned. None of these is live: each one ships
+     * with its own announcement and is moved out of this list the day it is.
+     */
+    roadmap: {
+      title: "Planned for holders",
+      tag: "Planned",
+      note: "each one ships with its own announcement, and moves to live on this page the day it does.",
+      items: [
+        {
+          title: "Holder fee tiers",
+          body: `hold more $${brand.token.ticker}, pay less per trade. read from the wallet you sign in with, no staking, no lock.`,
+        },
+        {
+          title: "Fee share",
+          body: `a share of what the venue earns, routed to $${brand.token.ticker} holders.`,
+        },
+        {
+          title: "Trading cups",
+          body: `leaderboards and ${brand.chain.settlement} prizes for the traders who call the dollar best.`,
+        },
+      ],
+    },
+
+    howto: {
+      title: "How to buy",
+      steps: [
+        { title: "Get SOL", body: "in a Solana wallet: Phantom, Solflare or Backpack." },
+        { title: "Open pump.fun", body: `from the button on this page, nowhere else.` },
+        { title: "Check the address", body: "it must match the contract address above, character for character." },
+        { title: "Buy, then trade", body: `hold $${brand.token.ticker} and trade the venue at vevoperps.com/app.` },
+      ],
+    },
   },
 
   /**
