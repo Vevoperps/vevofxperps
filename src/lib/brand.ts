@@ -23,7 +23,7 @@ export const brand = {
     /** Trading ticker, printed with the `$`. */
     ticker: "VEVO",
     /** Contract address, or null while it does not exist yet. */
-    address: null as string | null,
+    address: "7LRpCucrnANenJcvPLTwSCyG7qBsaGwt1qvc6W4Upump" as string | null,
   },
 
   chain: {
@@ -43,7 +43,7 @@ export const brand = {
      * The token's pump.fun page. Null before launch; when only the contract
      * address is set, the $VEVO page builds the pump.fun link from it.
      */
-    pumpfun: null as string | null,
+    pumpfun: "https://pump.fun/coin/7LRpCucrnANenJcvPLTwSCyG7qBsaGwt1qvc6W4Upump" as string | null,
     telegram: null as string | null,
     discord: null as string | null,
     /**

@@ -94,8 +94,12 @@ export const gateToken = (): string => {
 
 export const TOKEN_PAGE_COOKIE = "vp_token_page";
 
+/**
+ * Off since launch: the contract and the pump.fun link are in `brand.ts` and
+ * the page is public. Set `TOKEN_PAGE_LOCK=on` in Vercel to close it again.
+ */
 export const tokenPageLocked = (): boolean =>
-  process.env.TOKEN_PAGE_LOCK?.trim().toLowerCase() !== "off";
+  process.env.TOKEN_PAGE_LOCK?.trim().toLowerCase() === "on";
 
 export const tokenPagePassword = (): string => {
   const own = process.env.TOKEN_PAGE_PASSWORD?.trim();
